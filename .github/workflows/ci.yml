@@ -10,6 +10,23 @@ permissions:
   contents: read
 
 jobs:
+  rebase:
+    name: Rebased on main
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Require main in the PR history
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          git merge-base --is-ancestor FETCH_HEAD HEAD || {
+            echo "This PR must be rebased onto the latest ${{ github.base_ref }} before merging."
+            exit 1
+          }
+
   format:
     name: Format
     runs-on: ubuntu-latest
