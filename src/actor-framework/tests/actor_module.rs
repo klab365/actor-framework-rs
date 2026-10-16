@@ -24,13 +24,12 @@ struct ResetActor;
 struct SlowActor;
 struct CrashActor;
 struct Slow(u8);
-struct Crash;
+struct Crash(tokio::sync::oneshot::Sender<()>);
 struct BlockUntilReleased;
 struct ShutdownActor;
 
 static SLOW_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SLOW_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
-static CRASHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SHUTDOWN_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SHUTDOWN_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
@@ -54,7 +53,7 @@ async fn wait_slow(_context: &impl ActorContext, _state: &mut SlowActor, _messag
 }
 
 async fn crash(_context: &impl ActorContext, _state: &mut CrashActor, _message: Crash) {
-    CRASHED.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = _message.0.send(());
     panic!("intentional actor exit for closed-mailbox test");
 }
 
@@ -196,18 +195,13 @@ async fn try_send_returns_the_message_when_mailbox_is_full() {
 
 #[tokio::test]
 async fn sends_fail_after_actor_task_exits() {
-    CRASHED.store(false, std::sync::atomic::Ordering::SeqCst);
     let actors = start_actors();
-    actors.send(Crash).await.unwrap();
+    let (started, received) = tokio::sync::oneshot::channel();
+    actors.send(Crash(started)).await.unwrap();
+    received.await.unwrap();
     for _ in 0..20 {
-        if CRASHED.load(std::sync::atomic::Ordering::SeqCst) {
-            break;
-        }
-        tokio::task::yield_now().await;
-    }
-    assert!(CRASHED.load(std::sync::atomic::Ordering::SeqCst));
-    for _ in 0..20 {
-        if actors.send(Crash).await.is_err() {
+        let (started, _) = tokio::sync::oneshot::channel();
+        if actors.send(Crash(started)).await.is_err() {
             return;
         }
         tokio::task::yield_now().await;
@@ -217,15 +211,10 @@ async fn sends_fail_after_actor_task_exits() {
 
 #[tokio::test]
 async fn shutdown_reports_actor_panics() {
-    CRASHED.store(false, std::sync::atomic::Ordering::SeqCst);
     let actors = start_actors();
-    actors.send(Crash).await.unwrap();
-    for _ in 0..20 {
-        if CRASHED.load(std::sync::atomic::Ordering::SeqCst) {
-            break;
-        }
-        tokio::task::yield_now().await;
-    }
+    let (started, received) = tokio::sync::oneshot::channel();
+    actors.send(Crash(started)).await.unwrap();
+    received.await.unwrap();
     let error = actors.shutdown().await.unwrap_err();
     assert_eq!(error.actor, "crash_actor");
 }
