@@ -1,0 +1,16 @@
+[workspace]
+pr_branch_prefix = "release-plz-"
+pr_labels = ["release"]
+git_release_enable = true
+git_release_generate_notes = true
+semver_check = false
+
+[[package]]
+name = "actor-framework-rs"
+version_group = "actor-framework-rs"
+changelog_path = "Changelog.md"
+
+[[package]]
+name = "actor-framework-macros"
+version_group = "actor-framework-rs"
+changelog_update = false

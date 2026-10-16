@@ -1,0 +1,11 @@
+[package]
+name = "actor-framework-module-app-example"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+actor-framework = { package = "actor-framework-rs", path = "../../src/actor-framework", features = ["tokio"] }
+actor-framework-module-example = { path = "../module-lib" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

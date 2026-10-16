@@ -1,0 +1,40 @@
+error[E0308]: mismatched types
+  --> tests/ui/non_unit_handler.rs:10:1
+   |
+10 | / actor_module! {
+11 | |     pub manifest routes;
+12 | |     context {}
+13 | |     events: [];
+...  |
+20 | |     ];
+21 | | }
+   | | ^
+   | | |
+   | |_expected `Result<(), ()>`, found `()`
+   |   this expression has type `Result<(), ()>`
+22 |
+23 | / actor_system! {
+24 | |     pub struct App {
+25 | |         modules: [routes];
+26 | |     }
+27 | | }
+   | |_- in this macro invocation
+   |
+   = note:   expected enum `Result<(), ()>`
+           found unit type `()`
+   = note: this error originates in the macro `$crate::__actor_system` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: try wrapping the pattern in a variant of `Result`
+  --> src/lib.rs
+   |
+   ~         Ok($crate::__actor_system! {
+   |             $vis struct $name {
+...
+   |             }
+   ~         })
+   |
+   ~         Err($crate::__actor_system! {
+   |             $vis struct $name {
+...
+   |             }
+   ~         })
+   |

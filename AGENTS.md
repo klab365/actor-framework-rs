@@ -16,6 +16,12 @@ mise run test
 mise run docs
 ```
 
+## Git and commit conventions
+
+- Use Conventional Commits for every commit: `<type>(<optional scope>): <description>`.
+- Prefer imperative, concise descriptions. Common types include `feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `build`, and `chore`.
+- Reference related GitHub issues in commit bodies when applicable (for example, `Closes #12`).
+
 ## Coding guidelines
 
 - Keep `unsafe` forbidden.

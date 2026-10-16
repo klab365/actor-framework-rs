@@ -1,0 +1,31 @@
+[package]
+name = "actor-framework-rs"
+description = "A statically routed async actor framework for Rust"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "actor_framework"
+
+[lints]
+workspace = true
+
+[features]
+default = ["tokio"]
+std = []
+tokio = ["std", "dep:tokio"]
+wasm = ["std"]
+embassy = []
+
+[dependencies]
+actor-framework-macros = { version = "0.1.0", path = "../actor-framework-macros" }
+tokio = { version = "1", features = ["rt", "sync", "macros", "time"], optional = true }
+
+[dev-dependencies]
+trybuild = "1"
