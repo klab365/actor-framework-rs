@@ -21,9 +21,11 @@ default = ["tokio"]
 std = []
 tokio = ["std", "dep:tokio", "dep:actor-framework-macros"]
 wasm = ["std", "dep:async-channel", "dep:wasm-bindgen-futures", "dep:actor-framework-macros"]
-embassy = []
+embassy = ["dep:embassy-sync", "dep:embassy-futures", "dep:actor-framework-macros"]
 
 [dependencies]
+embassy-sync = { version = "0.8", optional = true, default-features = false }
+embassy-futures = { version = "0.1", optional = true }
 actor-framework-macros = { version = "0.1.0", path = "../actor-framework-macros", optional = true }
 tokio = { version = "1", features = ["rt", "sync", "macros", "time"], optional = true }
 
@@ -33,6 +35,9 @@ async-channel = { version = "2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 
 [dev-dependencies]
+critical-section = { version = "1.2", features = ["std"] }
+embassy-executor = { version = "0.10", features = ["platform-std", "executor-thread"] }
+static_cell = "2"
 trybuild = "1"
 futures-lite = "2"
 

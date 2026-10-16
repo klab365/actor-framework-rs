@@ -2,7 +2,7 @@
 
 A Rust actor framework exploring statically composed actors for embedded and hosted targets. The publishable Cargo package is `actor-framework-rs`; its Rust library name remains `actor_framework`.
 
-The implementation includes Tokio and [WebAssembly](docs/wasm.md) prototypes. The core is heap-free and `no_std`; both hosted adapters allocate. Heap-free Embassy integration remains planned.
+The runtime-neutral core is `no_std` and heap-free. Optional Tokio, WebAssembly, and Embassy adapters provide runtime-specific actor-system backends; Embassy storage and task capacities are statically bounded.
 
 ## Design goals
 
@@ -17,9 +17,8 @@ The implementation includes Tokio and [WebAssembly](docs/wasm.md) prototypes. Th
 - `src/actor-framework/` — `actor-framework-rs` library package
 - `docs/` — use cases and architecture notes
 - `examples/tokio/` — Tokio example
-- `examples/wasm/` — WASM `actor_module!` / `actor_system!` example; [run instructions](docs/wasm.md)
 - `examples/module-lib/` and `examples/module-app/` — cross-crate module composition example
 
 ## Current status
 
-The Tokio prototype supports reusable `actor_module!` manifests, bounded mailboxes, typed command routing, event fan-out, and coordinated `shutdown().await`. The WASM prototype adds typed bounded routes and local JS tasks. Embassy and request/response are not implemented yet. See [actor use cases](docs/actors-use-cases.md), [architecture notes](docs/architecture.md), the [Tokio design](docs/tokio-first-design.md), and [release instructions](docs/release.md).
+The Tokio adapter supports reusable `actor_module!` manifests, bounded mailboxes, typed routing, and coordinated shutdown. WASM and Embassy backends are prototypes with runtime-specific lifecycle limits. See [Embassy notes](docs/embassy.md), [WASM notes](docs/wasm.md), [architecture](docs/architecture.md), and [Tokio design](docs/tokio-first-design.md).

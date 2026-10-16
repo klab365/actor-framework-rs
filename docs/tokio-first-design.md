@@ -168,16 +168,15 @@ Events ohne Subscriber müssen in der `events: [...]`-Deklaration eines ausgewä
 Die gemeinsamen Routing-Verträge sind jetzt unabhängig von Tokio verfügbar;
 `Actor`, `Receiver`, `run` und eine inline gespeicherte `Mailbox<M, N>` definieren
 den allocatorfreien Integrationspfad. Siehe [Architektur](architecture.md).
-Das Tokio-Backend der Makros und seine Shutdown-/Fan-out-Semantik bleiben
-unverändert. Mit Feature `wasm` sind dieselben Makros für ein separates
-WASM-Backend verfügbar; siehe [WASM-Design](wasm.md). Der gemeinsame `run`-Loop drainiert
+Die Tokio-Makros und ihre Shutdown-/Fan-out-Semantik bleiben unverändert und
+werden nur mit dem Feature `tokio` exportiert. Der gemeinsame `run`-Loop drainiert
 bis zum Ende; er ersetzt nicht den Tokio-Loop mit dessen explizitem Shutdown.
 
 ## Nicht in V1
 
-- Embassy-Runtime-Adapter (WASM ist inzwischen als separater
-  [Prototyp](wasm.md) auf Basis des Cores verfügbar)
-- heap-freier Embassy-Task-/Mailbox-Speicher
+- WASM-Runtime-Adapter
+- Generierte Embassy-Systeme (der manuelle [Embassy-Prototyp](embassy.md)
+  unterstützt inzwischen heap-freien Task-/Mailbox-Speicher)
 - Request/Response
 - verzögerte Nachrichten und Timer
 - Supervision/Restart

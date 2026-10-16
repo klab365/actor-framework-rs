@@ -7,10 +7,9 @@ and root re-exports contain runtime-independent contracts and inline storage.
 With `default-features = false` the crate is genuinely `no_std`, has no
 dependencies, does not import `alloc`, and forbids unsafe code. The default
 `tokio` feature enables the existing adapter and optional proc-macro dependency.
-The macros are exported with `tokio` or `wasm`. They generate local WASM tasks
-on wasm32 with `wasm`, otherwise Tokio tasks when `tokio` is enabled. The optional allocating `wasm` adapter uses these core contracts
-with local JS tasks and typed bounded channels; see [WASM design](wasm.md).
-`embassy` remains a placeholder.
+The actor-system macro has runtime-specific Tokio, WASM, and Embassy backends;
+the shared actor contracts remain runtime-neutral. The optional [Embassy
+adapter](embassy.md) uses statically reserved task/channel storage.
 
 A separate core crate is unnecessary until an adapter needs independent
 versioning. No Tokio types, `Send`, `'static`, boxed futures, or dynamic registry
@@ -67,8 +66,7 @@ state, proving that neither `Send` nor `'static` is imposed.
 handler and drops its in-flight message; pending queue storage remains owned by
 the caller. It offers no supervision or panic recovery. Tokio retains its
 separate generated loops: shutdown lets the active handler finish and discards
-queued messages. WASM's generated loops instead close and drain every mailbox;
-see [WASM lifecycle](wasm.md) for outgoing-route and panic limitations. This difference is explicit, not an implied shared lifecycle.
+queued messages. This difference is explicit, not an implied shared lifecycle.
 
 ## Validation and deferred work
 
@@ -78,8 +76,6 @@ unification. `mise run test-core` checks storage, ownership/drop behavior and
 inline local execution without runtime features. Existing integration and UI
 tests continue to validate Tokio, routing, backpressure and shutdown.
 
-Embassy/static task integration remains future adapter work. The WASM prototype
-is implemented separately without changing the core's contracts or storage. No particular embedded target, synchronization primitive or interrupt
-model has been selected. This core defines and tests their integration boundary;
-it does not claim to implement those adapters. Heap-free executor storage must
-still be validated against a concrete target before stabilizing that adapter.
+The [Embassy prototype](embassy.md) cross-compiles its generated actor-system
+backend for Cortex-M4F. On-device validation and shutdown/supervision semantics
+remain future work.

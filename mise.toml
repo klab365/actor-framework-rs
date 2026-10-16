@@ -1,12 +1,33 @@
 [tools]
-rust = { version = "stable", components = ["clippy", "rustfmt"], targets = ["wasm32-unknown-unknown"] }
+rust = { version = "stable", components = ["clippy", "rustfmt"], targets = ["wasm32-unknown-unknown", "thumbv7em-none-eabihf"] }
 node = "24"
 "cargo:wasm-bindgen-cli" = "0.2.129"
+"cargo:probe-rs-tools" = "0.29"
 
 
 [tasks.check]
 description = "Check the runtime-neutral crate boundary"
 run = "cargo check -p actor-framework-rs --no-default-features"
+
+[tasks.check-runtime-feature-matrix]
+description = "Verify standalone and combined runtime feature configurations"
+run = ["cargo check -p actor-framework-rs --no-default-features --features embassy", "cargo check -p actor-framework-rs --no-default-features --features tokio,embassy"]
+
+[tasks.check-embassy]
+description = "Compile the Embassy actor-system example for Cortex-M4F"
+run = "cargo check --manifest-path examples/embassy/Cargo.toml --target thumbv7em-none-eabihf"
+
+[tasks.check-embassy-microbit-v2]
+description = "Compile the flashable Embassy micro:bit v2 actor-system example"
+run = "cargo check --manifest-path examples/embassy-microbit-v2/Cargo.toml --target thumbv7em-none-eabihf"
+
+[tasks.flash-embassy-microbit-v2]
+description = "Build and flash the Embassy actor-system example to a micro:bit v2"
+run = "cd examples/embassy-microbit-v2 && cargo run --release"
+
+[tasks.test-embassy]
+description = "Test Embassy mailbox behavior"
+run = "cargo test -p actor-framework-rs --no-default-features --features embassy"
 
 [tasks.test-core]
 description = "Test the core without runtime features"
@@ -40,7 +61,7 @@ run = "cargo check --workspace --all-features"
 
 [tasks.check-format]
 description = "Check Rust formatting"
-run = "cargo fmt --all -- --check && cargo fmt --manifest-path examples/wasm/Cargo.toml -- --check"
+run = "cargo fmt --all -- --check && cargo fmt --manifest-path examples/wasm/Cargo.toml -- --check && cargo fmt --manifest-path examples/embassy/Cargo.toml -- --check && cargo fmt --manifest-path examples/embassy-microbit-v2/Cargo.toml -- --check"
 
 [tasks.format]
 description = "Format Rust code"

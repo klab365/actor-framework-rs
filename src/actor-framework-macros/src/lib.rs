@@ -1,3 +1,4 @@
+mod embassy;
 mod wasm;
 
 use proc_macro::TokenStream;
@@ -9,6 +10,7 @@ use syn::{
     punctuated::Punctuated,
 };
 
+#[derive(Clone)]
 struct SystemInput {
     visibility: syn::Visibility,
     name: Ident,
@@ -16,6 +18,7 @@ struct SystemInput {
     events: Vec<Type>,
 }
 
+#[derive(Clone)]
 struct ActorDef {
     field: Ident,
     state: Type,
@@ -25,6 +28,7 @@ struct ActorDef {
     events: Vec<RouteDef>,
 }
 
+#[derive(Clone)]
 struct RouteDef {
     message: Type,
     handler: Path,
@@ -142,6 +146,17 @@ pub fn __actor_system(input: TokenStream) -> TokenStream {
 pub fn __actor_system_wasm(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as SystemInput);
     match expand(input, true) {
+        Ok(tokens) => tokens.into(),
+        Err(error) => error.into_compile_error().into(),
+    }
+}
+
+/// Internal Embassy endpoint after actor-module composition.
+#[doc(hidden)]
+#[proc_macro]
+pub fn __actor_system_embassy(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as SystemInput);
+    match embassy::expand(input) {
         Ok(tokens) => tokens.into(),
         Err(error) => error.into_compile_error().into(),
     }
