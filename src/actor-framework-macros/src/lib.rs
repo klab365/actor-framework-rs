@@ -1,3 +1,5 @@
+mod wasm;
+
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -128,7 +130,18 @@ impl Parse for RouteDef {
 #[proc_macro]
 pub fn __actor_system(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as SystemInput);
-    match expand(input) {
+    match expand(input, false) {
+        Ok(tokens) => tokens.into(),
+        Err(error) => error.into_compile_error().into(),
+    }
+}
+
+/// Internal WASM endpoint after module composition.
+#[doc(hidden)]
+#[proc_macro]
+pub fn __actor_system_wasm(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as SystemInput);
+    match expand(input, true) {
         Ok(tokens) => tokens.into(),
         Err(error) => error.into_compile_error().into(),
     }
@@ -291,7 +304,7 @@ fn quote_actor(actor: &ActorDef, module: &Ident) -> proc_macro2::TokenStream {
     }
 }
 
-fn expand(input: SystemInput) -> Result<proc_macro2::TokenStream> {
+fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
     if input.actors.is_empty() {
         return Err(syn::Error::new(
             input.name.span(),
@@ -319,6 +332,10 @@ fn expand(input: SystemInput) -> Result<proc_macro2::TokenStream> {
             }
             seen_commands.push(route.message.clone());
         }
+    }
+
+    if wasm {
+        return Ok(wasm::expand(visibility, name, actors, declared_events));
     }
 
     let enum_defs = actors.iter().map(|actor| {

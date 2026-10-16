@@ -20,12 +20,21 @@ workspace = true
 default = ["tokio"]
 std = []
 tokio = ["std", "dep:tokio", "dep:actor-framework-macros"]
-wasm = ["std"]
+wasm = ["std", "dep:async-channel", "dep:wasm-bindgen-futures", "dep:actor-framework-macros"]
 embassy = []
 
 [dependencies]
 actor-framework-macros = { version = "0.1.0", path = "../actor-framework-macros", optional = true }
 tokio = { version = "1", features = ["rt", "sync", "macros", "time"], optional = true }
 
+async-channel = { version = "2", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = { version = "0.4", optional = true }
+
 [dev-dependencies]
 trybuild = "1"
+futures-lite = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"

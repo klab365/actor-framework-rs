@@ -27,6 +27,22 @@ jobs:
       - run: mise run check
       - run: mise run test-core
 
+  wasm:
+    name: WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+      - run: mise run test-wasm
+      - run: mise run check-wasm
+      - run: mise run check-wasm-example
+      - name: Add Cargo binaries to PATH
+        run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Execute local actor on Node
+        run: cargo test -p actor-framework-rs --locked --no-default-features --features wasm --target wasm32-unknown-unknown --test wasm --test wasm_macros
+        env:
+          CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
+
   tokio:
     name: Tokio
     runs-on: ubuntu-latest

@@ -1,0 +1,20 @@
+[package]
+name = "actor-framework-wasm-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+autobins = false
+
+[workspace]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+actor-framework-rs = { path = "../../src/actor-framework", default-features = false, features = ["wasm"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["console"] }
