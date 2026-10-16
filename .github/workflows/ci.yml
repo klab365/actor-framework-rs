@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Flashing needs local USB/system libraries; CI only compiles embedded firmware.
+env:
+  MISE_DISABLE_TOOLS: cargo:probe-rs-tools
+
+
 jobs:
   rebase:
     name: Rebased on main
@@ -59,6 +64,18 @@ jobs:
         run: cargo test -p actor-framework-rs --locked --no-default-features --features wasm --target wasm32-unknown-unknown --test wasm --test wasm_macros
         env:
           CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
+
+  embassy:
+    name: Embassy Cortex-M4F
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+      - run: rustup target add thumbv7em-none-eabihf
+      - run: mise run check-runtime-feature-matrix
+      - run: mise run check-embassy
+      - run: mise run check-embassy-microbit-v2
+      - run: mise run test-embassy
 
   tokio:
     name: Tokio

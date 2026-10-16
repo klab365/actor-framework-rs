@@ -1,0 +1,19 @@
+[package]
+name = "embassy-actor-example"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+actor-framework-rs = { path = "../../src/actor-framework", default-features = false, features = ["embassy"] }
+embassy-executor = { version = "0.10", features = ["platform-cortex-m", "executor-thread"] }
+embassy-sync = "0.8"
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7"
+static_cell = "2"
+panic-halt = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
