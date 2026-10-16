@@ -1,78 +1,110 @@
-use actor_framework::{actor_module, actor_system};
+use actor_framework::{ActorSendRoute, Receiver, actor_module, actor_system};
 use std::{cell::Cell, rc::Rc};
 use wasm_bindgen::prelude::*;
 
+/// Number of messages received by each actor in one demonstration run.
+const ROUNDS: u8 = 3;
+const ROUND_DELAY_MS: i32 = 700;
+
 #[derive(Debug)]
-pub struct Add(pub u32);
+pub struct Ping(pub u8);
 
-#[derive(Clone)]
-pub struct TotalChanged(pub u32);
+#[derive(Debug)]
+pub struct Pong(pub u8);
 
-pub struct Counter(pub Rc<Cell<u32>>);
+pub struct PingActor(pub Rc<Cell<u8>>);
 
-pub struct Observer {
-    pub total: Rc<Cell<u32>>,
-    pub completed: actor_framework::wasm::Sender<()>,
+pub struct PongActor {
+    received: Rc<Cell<u8>>,
+    completed: actor_framework::wasm::Sender<()>,
 }
 
-pub async fn add(context: &impl counters::ActorContext, state: &mut Counter, message: Add) {
-    state.0.set(state.0.get() + message.0);
-    context.publish(TotalChanged(state.0.get())).await.unwrap();
+pub async fn receive_ping(context: &impl ping_pong::ActorContext, state: &mut PingActor, Ping(round): Ping) {
+    pause_between_rounds().await;
+    state.0.set(state.0.get() + 1);
+    log(&format!("Ping received round {round}"));
+    log(&format!("Ping sending Pong round {round}"));
+    context.send(Pong(round)).await.unwrap();
 }
 
-pub async fn observe(_: &impl counters::ActorContext, state: &mut Observer, event: TotalChanged) {
-    state.total.set(event.0);
-    if event.0 == 5 {
-        actor_framework::ActorSendRoute::send_route(&state.completed, ())
-            .await
-            .unwrap();
+pub async fn receive_pong(context: &impl ping_pong::ActorContext, state: &mut PongActor, Pong(round): Pong) {
+    pause_between_rounds().await;
+    state.received.set(state.received.get() + 1);
+    log(&format!("Pong received round {round}"));
+
+    if round == ROUNDS {
+        log("Pong reached the final round and is terminating the sequence");
+        log("Pong sending completion acknowledgement");
+        ActorSendRoute::send_route(&state.completed, ()).await.unwrap();
+    } else {
+        let next_round = round + 1;
+        log(&format!("Pong sending Ping round {next_round}"));
+        context.send(Ping(next_round)).await.unwrap();
     }
 }
 
 actor_module! {
-    manifest counters;
-    context { send: []; publish: [TotalChanged]; }
-    events: [TotalChanged];
+    manifest ping_pong;
+    context { send: [Ping, Pong]; publish: []; }
+    events: [];
     actors: [
-        counter: Counter {
-            mailbox_capacity: 2;
-            commands { Add => add; }
+        ping: PingActor {
+            mailbox_capacity: 1;
+            commands { Ping => receive_ping; }
             events {}
         },
-        observer: Observer {
-            mailbox_capacity: 2;
-            commands {}
-            events { TotalChanged => observe; }
+        pong: PongActor {
+            mailbox_capacity: 1;
+            commands { Pong => receive_pong; }
+            events {}
         }
     ];
 }
 
 actor_system! {
-    pub struct AppActors { modules: [counters]; }
+    pub struct PingPongActors { modules: [ping_pong]; }
 }
 
-/// Run a statically routed actor system; the returned Promise resolves on success.
+/// Run a finite browser-visible ping-pong exchange.
+///
+/// The returned JavaScript `Promise` resolves after Ping and Pong have each
+/// received exactly [`ROUNDS`] messages. Call this after initializing the
+/// wasm-bindgen module; `examples/wasm/index.html` does so on page load.
 #[wasm_bindgen]
-pub async fn run_example() {
-    let total = Rc::new(Cell::new(0));
-    let observed = Rc::new(Cell::new(0));
+pub async fn run_ping_pong() {
+    let ping_received = Rc::new(Cell::new(0));
+    let pong_received = Rc::new(Cell::new(0));
     let (completed, mut completion) = actor_framework::wasm::channel(1).unwrap();
-    let actors = AppActors::builder()
-        .counter(Counter(total.clone()))
-        .observer(Observer {
-            total: observed.clone(),
+    let actors = PingPongActors::builder()
+        .ping(PingActor(ping_received.clone()))
+        .pong(PongActor {
+            received: pong_received.clone(),
             completed,
         })
         .start()
         .unwrap();
-    actors.try_send(Add(2)).unwrap();
-    actors.send(Add(3)).await.unwrap();
 
-    // Allow outgoing events to be accepted before closing all destinations.
-    // No completion acknowledgement is implied by send().
-    assert_eq!(actor_framework::Receiver::receive(&mut completion).await, Some(()));
+    log("Starting Ping round 1");
+    actors.send(Ping(1)).await.unwrap();
+    assert_eq!(Receiver::receive(&mut completion).await, Some(()));
     actors.shutdown().await.unwrap();
-    assert_eq!(total.get(), 5);
-    assert_eq!(observed.get(), 5);
-    web_sys::console::log_1(&"WASM actor_module!/actor_system! example passed".into());
+    assert_eq!(ping_received.get(), ROUNDS);
+    assert_eq!(pong_received.get(), ROUNDS);
+    log("Ping-pong sequence completed");
+}
+
+async fn pause_between_rounds() {
+    let window = web_sys::window().expect("the example requires a browser window");
+    let delay = js_sys::Promise::new(&mut |resolve, _| {
+        window
+            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ROUND_DELAY_MS)
+            .expect("failed to schedule the ping-pong delay");
+    });
+    wasm_bindgen_futures::JsFuture::from(delay)
+        .await
+        .expect("the ping-pong delay promise should resolve");
+}
+
+fn log(message: &str) {
+    web_sys::console::log_1(&message.into());
 }

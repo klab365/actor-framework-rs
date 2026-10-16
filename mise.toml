@@ -24,6 +24,16 @@ run = "cargo test -p actor-framework-rs --no-default-features --features wasm --
 description = "Build the runnable WASM actor example"
 run = "cargo build --manifest-path examples/wasm/Cargo.toml --target wasm32-unknown-unknown"
 
+[tasks.wasm-example]
+description = "Build and serve the browser-visible WASM ping-pong example"
+run = """
+mise run check-wasm-example
+rm -rf examples/wasm/pkg
+wasm-bindgen --target web --out-dir examples/wasm/pkg \\
+  examples/wasm/target/wasm32-unknown-unknown/debug/actor_framework_wasm_example.wasm
+python3 -m http.server --directory examples/wasm 8080
+"""
+
 [tasks.check-tokio]
 description = "Check the Tokio implementation"
 run = "cargo check --workspace --all-features"
