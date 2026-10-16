@@ -18,7 +18,7 @@ struct Logger {
 async fn add(counter: &mut Counter, message: Add) {
     println!("[counter] received Add({})", message.0);
     counter.total += message.0;
-    println!("[counter] publishing TotalChanged({})", counter.total);
+    println!("[counter] total is {}", counter.total);
 }
 
 async fn log(logger: &mut Logger, event: TotalChanged) {
@@ -64,6 +64,11 @@ async fn main() {
     actors.send(Add(5)).await.expect("counter is running");
     println!("[main] sending Add(7)");
     actors.send(Add(7)).await.expect("counter is running");
+
+    // Handler-to-handler communication is deferred to issue #22. Demonstrate
+    // event routing independently through the application-owned system handle.
+    actors.publish(TotalChanged(5)).await.expect("logger is running");
+    actors.publish(TotalChanged(12)).await.expect("logger is running");
 
     for _ in 0..20 {
         if LOG.lock().await.as_slice() == [5, 12] {
