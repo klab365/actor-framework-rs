@@ -14,7 +14,7 @@ help: the return type of this call is `Forbidden` due to the type of the argumen
   |                  |
   |                  this argument influences the return type of `send`
 note: method defined here
- --> src/tokio_runtime.rs
+ --> src/core.rs
   |
   |     async fn send<M>(&self, message: M) -> Result<(), SendError>
   |              ^^^^
