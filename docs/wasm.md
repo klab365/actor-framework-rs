@@ -66,36 +66,59 @@ Dependencies are not claimed to be internally unsafe-free.
   and can prevent shutdown completion. Long CPU handlers must yield.
   Browser/worker execution is intended but only Node execution is tested here.
 
-## Executable test and checks
+## Browser ping-pong example and checks
 
-`examples/wasm/` is a standalone WASM cdylib using `actor_module!`,
-`actor_system!`, a builder, commands, events, non-`Send` actor state and an explicit
-completion acknowledgement. `run_example()` returns a Promise. Run with Node:
+`examples/wasm/` is a standalone wasm-bindgen `cdylib`. Its exported
+`run_ping_pong()` function returns a JavaScript `Promise`; it starts a new,
+finite exchange each time it is called. `index.html` initializes the module and
+calls it on page load. Open the DevTools console to see every receive and send
+from both actors. Each actor waits 700 ms before handling a message, making
+activity visible at roughly 1.4-second intervals; this timer-based delay yields
+to the browser event loop rather than blocking it.
+
+The exchange starts with `Ping(1)`.  Ping sends `Pong(1)` after each receive;
+Pong returns the next Ping until it receives `Pong(3)`. Therefore each actor
+receives exactly three messages, Ping sends three messages, Pong sends two, and
+the completion acknowledgement is emitted only after the final Pong receive.
+Both actor mailboxes and the acknowledgement channel have capacity one. The
+single initial message and serial handlers mean this particular finite chain
+never fills either mailbox. In general, an awaited send applies backpressure;
+there is no overflow or message eviction. Cancelling a pending send drops that
+undelivered message, while shutdown closes mailboxes and drains messages already
+accepted. The example waits for its acknowledgement before shutdown, then drops
+no accepted ping-pong messages.
+
+Build and run it in a browser:
 
 ```sh
-mise run check-wasm-example
-wasm-bindgen --target nodejs --out-dir /tmp/actor-wasm-example \
-  examples/wasm/target/wasm32-unknown-unknown/debug/actor_framework_wasm_example.wasm
-node -e 'require("/tmp/actor-wasm-example/actor_framework_wasm_example.js").run_example().catch(e => { console.error(e); process.exitCode = 1; })'
+rustup target add wasm32-unknown-unknown
+mise run wasm-example
 ```
 
-For a browser, use `wasm-bindgen --target web`, serve its output, import the JS
-module, await its default initializer, then `await run_example()`.
-`tests/wasm_macros.rs` runs generated routes, fan-out, builder failures,
-backpressure and shutdown under Node. `tests/wasm.rs` covers the low-level path;
-native tests cover full/closed errors, cancellation and partial fan-out.
+The task builds the example, generates `examples/wasm/pkg/` with wasm-bindgen,
+and starts a local server. Navigate to <http://localhost:8080/> and inspect the DevTools console. Stop the server with
+`Ctrl-C`. The
+`wasm-bindgen-cli` version must match `wasm-bindgen` in `Cargo.lock`; mise
+installs version `0.2.129`, or install it manually with:
+
+```sh
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
+```
+
+`mise run check-wasm-example` is the target-specific build check for the
+browser example. `tests/wasm_macros.rs` runs generated routes, fan-out, builder
+failures, backpressure and shutdown under Node. `tests/wasm.rs` covers the
+low-level path; native tests cover full/closed errors, cancellation and partial
+fan-out.
 
 ```sh
 mise run test-wasm
-rustup target add wasm32-unknown-unknown
 mise run check-wasm
-# Install the wasm-bindgen-cli version matching wasm-bindgen in Cargo.lock.
-cargo install wasm-bindgen-cli --version 0.2.129 --locked
 # Requires Node on PATH; wasm-bindgen-test defaults to Node.
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
   cargo test -p actor-framework-rs --no-default-features --features wasm \
   --target wasm32-unknown-unknown --test wasm --test wasm_macros
 ```
 
-CI compiles the adapter and executable test for WASM, runs native semantics,
+CI compiles the adapter and executable example for WASM, runs native semantics,
 and runs the JS test under Node with a matching runner from the lockfile.

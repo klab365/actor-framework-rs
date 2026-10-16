@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>actor-framework-rs WASM ping-pong</title>
+  </head>
+  <body>
+    <p>Open the browser DevTools console to see the bounded Ping-Pong exchange.</p>
+    <script type="module">
+      import init, { run_ping_pong } from "./pkg/actor_framework_wasm_example.js";
+
+      await init();
+      await run_ping_pong();
+    </script>
+  </body>
+</html>

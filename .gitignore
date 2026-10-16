@@ -1,5 +1,6 @@
 target
 **/target
+examples/wasm/pkg/
 .env
 *.profraw
 .DS_Store
