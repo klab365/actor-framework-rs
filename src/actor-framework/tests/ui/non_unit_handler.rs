@@ -3,7 +3,7 @@ use actor_framework::{actor_module, actor_system};
 struct Command;
 struct State;
 
-async fn handle(_context: &ActuatorContext, _state: &mut State, _message: Command) -> Result<(), ()> {
+async fn handle(_state: &mut State, _message: Command) -> Result<(), ()> {
     Ok(())
 }
 

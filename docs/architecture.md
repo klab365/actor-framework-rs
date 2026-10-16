@@ -23,8 +23,8 @@ and a context and returns a concrete async future. `run` consumes messages from
 a `Receiver` serially and awaits each handler to completion. Both support local,
 borrowed, non-`Send` state and contexts. No marker derives are needed.
 
-`ActorSendRoute`, `ActorPublishRoute`, `ActorContext`, `SendError`, and
-`TrySendError` are extracted from the original Tokio adapter without changing
+`ActorSendRoute`, `ActorPublishRoute`, `SendError`, and `TrySendError` are
+extracted from the original Tokio adapter without changing
 root paths or signatures. Generated Tokio handlers continue to use free async
 functions and generated message enums rather than being forced through a new
 `Actor` wrapper. These are two statically dispatched entry points, not a dynamic

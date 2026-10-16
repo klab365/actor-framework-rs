@@ -28,28 +28,6 @@ pub trait ActorPublishRoute<M> {
     async fn publish_route(&self, message: M) -> Result<(), SendError>;
 }
 
-/// Context capability available to actor handlers.
-#[allow(async_fn_in_trait)]
-pub trait ActorContext {
-    /// Send a command when the module context grants that route.
-    async fn send<M>(&self, message: M) -> Result<(), SendError>
-    where
-        Self: ActorSendRoute<M>,
-    {
-        ActorSendRoute::send_route(self, message).await
-    }
-
-    /// Publish an event when the module context grants that route.
-    async fn publish<M>(&self, message: M) -> Result<(), SendError>
-    where
-        Self: ActorPublishRoute<M>,
-    {
-        ActorPublishRoute::publish_route(self, message).await
-    }
-}
-
-impl<T> ActorContext for T {}
-
 /// Error returned by a non-blocking send.
 #[derive(Debug, PartialEq, Eq)]
 pub enum TrySendError<T> {

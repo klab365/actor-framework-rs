@@ -34,15 +34,11 @@ impl ActivityLed {
     }
 }
 
-async fn count_press(context: &ActuatorContext, counter: &mut Counter, _: ButtonPressed) {
+async fn count_press(counter: &mut Counter, _: ButtonPressed) {
     counter.count = counter.count.wrapping_add(1);
-    context
-        .publish(PressObserved(counter.count))
-        .await
-        .expect("LED actor is running");
 }
 
-async fn blink(_context: &ActuatorContext, led: &mut ActivityLed, event: PressObserved) {
+async fn blink(led: &mut ActivityLed, event: PressObserved) {
     led.toggle();
     info!("micro:bit button A pressed {} times", event.0);
     Timer::after(Duration::from_millis(100)).await;

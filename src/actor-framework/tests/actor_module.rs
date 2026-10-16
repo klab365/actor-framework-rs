@@ -1,6 +1,6 @@
 #![cfg(feature = "tokio")]
 
-use actor_framework::{actor_handler, actor_module, actor_system};
+use actor_framework::{actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -43,54 +43,51 @@ static SLOW_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 static SHUTDOWN_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SHUTDOWN_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
-async fn increment(context: &ActuatorContext, state: &mut Counter, amount: u32) {
+async fn increment(state: &mut Counter, amount: u32) {
     state.value += amount;
-    context.publish(Changed(state.value)).await.unwrap();
-    context.post(Reset).unwrap();
 }
 
-#[actor_handler]
 async fn record(state: &mut Recorder, event: Changed) {
     state.values.lock().await.push(event.0);
 }
 
-async fn reset(_context: &ActuatorContext, _state: &mut ResetActor, _message: Reset) {
+async fn reset(_state: &mut ResetActor, _message: Reset) {
     RESET_SEEN.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
-async fn wait_slow(_context: &ActuatorContext, _state: &mut SlowActor, _message: Slow) {
+async fn wait_slow(_state: &mut SlowActor, _message: Slow) {
     SLOW_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
     SLOW_RELEASE.notified().await;
 }
 
-async fn crash(_context: &ActuatorContext, _state: &mut CrashActor, _message: Crash) {
+async fn crash(_state: &mut CrashActor, _message: Crash) {
     let _ = _message.0.send(());
     panic!("intentional actor exit for closed-mailbox test");
 }
 
-async fn block_until_released(_context: &ActuatorContext, _state: &mut ShutdownActor, _message: BlockUntilReleased) {
+async fn block_until_released(_state: &mut ShutdownActor, _message: BlockUntilReleased) {
     SHUTDOWN_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
     SHUTDOWN_RELEASE.notified().await;
 }
 
-async fn record_partial(_context: &ActuatorContext, _state: &mut PartialRecorder, event: PartialEvent) {
+async fn record_partial(_state: &mut PartialRecorder, event: PartialEvent) {
     PARTIAL_FIRST.lock().await.push(event);
     PARTIAL_FIRST_DELIVERED.notify_one();
 }
 
-async fn close_partial(_context: &ActuatorContext, _state: &mut PartialClosed, message: ClosePartial) {
+async fn close_partial(_state: &mut PartialClosed, message: ClosePartial) {
     let _ = message.0.send(());
     panic!("intentional actor exit for partial-publish test");
 }
 
-async fn discard_partial(_context: &ActuatorContext, _state: &mut PartialClosed, _event: PartialEvent) {}
+async fn discard_partial(_state: &mut PartialClosed, _event: PartialEvent) {}
 
-async fn record_partial_last(_context: &ActuatorContext, _state: &mut PartialRecorder, event: PartialEvent) {
+async fn record_partial_last(_state: &mut PartialRecorder, event: PartialEvent) {
     PARTIAL_LAST.lock().await.push(event);
     PARTIAL_LAST_DELIVERED.notify_one();
 }
 
-async fn queue_message(_context: &ActuatorContext, _state: &mut QueueState, _message: QueueMessage) {
+async fn queue_message(_state: &mut QueueState, _message: QueueMessage) {
     QUEUE_STARTED.notify_one();
     QUEUE_RELEASE.notified().await;
     QUEUE_COMPLETED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -217,6 +214,7 @@ async fn composes_multiple_modules_and_broadcasts_to_each_subscriber() {
 
     let actors = start_actors();
     actors.send(5_u32).await.unwrap();
+    actors.publish(Changed(5)).await.unwrap();
     actors.send(Reset).await.unwrap();
 
     for _ in 0..20 {

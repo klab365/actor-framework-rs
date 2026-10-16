@@ -1,4 +1,4 @@
-use actor_framework::{actor_handler, actor_module, actor_system};
+use actor_framework::{actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -15,14 +15,12 @@ struct Logger {
     values: Arc<Mutex<Vec<u32>>>,
 }
 
-async fn add(context: &ActuatorContext, counter: &mut Counter, message: Add) {
+async fn add(counter: &mut Counter, message: Add) {
     println!("[counter] received Add({})", message.0);
     counter.total += message.0;
     println!("[counter] publishing TotalChanged({})", counter.total);
-    context.publish(TotalChanged(counter.total)).await.unwrap();
 }
 
-#[actor_handler]
 async fn log(logger: &mut Logger, event: TotalChanged) {
     println!("[logger] received TotalChanged({})", event.0);
     logger.values.lock().await.push(event.0);

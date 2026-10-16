@@ -30,7 +30,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
     let name = input.name;
     let visibility = input.visibility;
     let builder = format_ident!("{}Builder", name);
-    let context = format_ident!("ActuatorContext");
+    let context = format_ident!("__{}EmbassyContext", name);
     let worker_count = input.actors.len();
     let mut enums = Vec::new();
     let mut context_fields = Vec::new();
@@ -91,7 +91,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
             .map(|(i, route)| {
                 let v = format_ident!("Message{i}");
                 let handler = &route.handler;
-                quote!(#msg::#v(message) => { let () = #handler(&task_context, &mut actor, message).await; })
+                quote!(#msg::#v(message) => { let () = #handler(&mut actor, message).await; })
             })
             .collect();
         task_fns.push(quote! {
@@ -194,22 +194,8 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         #(#enums)*
         #(#task_fns)*
         #[doc(hidden)] pub trait __ActorTrySendRoute<M> { fn try_route(&self, message:M)->Result<(),::actor_framework::TrySendError<M>>; }
-        #[derive(Clone)] pub struct #context { #(#context_fields),*, __lifecycle: &'static ::actor_framework::embassy::Lifecycle }
+        #[derive(Clone)] struct #context { #(#context_fields),*, __lifecycle: &'static ::actor_framework::embassy::Lifecycle }
         #(#command_routes)* #(#publish)*
-        impl #context {
-            pub fn post<M>(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>
-            where Self: __ActorTrySendRoute<M> {
-                __ActorTrySendRoute::try_route(self, message)
-            }
-            pub async fn send<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
-            where Self: ::actor_framework::ActorSendRoute<M> {
-                ::actor_framework::ActorSendRoute::send_route(self, message).await
-            }
-            pub async fn publish<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
-            where Self: ::actor_framework::ActorPublishRoute<M> {
-                ::actor_framework::ActorPublishRoute::publish_route(self, message).await
-            }
-        }
         #visibility struct #name { __context: #context }
         #visibility struct #builder { #(#builder_fields),* }
         impl #name { pub fn builder()->#builder { #builder { #(#empty),* } }

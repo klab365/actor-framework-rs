@@ -12,7 +12,7 @@ static EXECUTOR: StaticCell<embassy_executor::Executor> = StaticCell::new();
 struct Add(usize);
 struct Counter;
 
-async fn add(_context: &ActuatorContext, _actor: &mut Counter, message: Add) {
+async fn add(_actor: &mut Counter, message: Add) {
     OBSERVED.fetch_add(message.0, Ordering::SeqCst);
 }
 

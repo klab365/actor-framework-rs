@@ -6,7 +6,7 @@ pub(super) fn expand(
     actors: Vec<ActorDef>,
     events: Vec<Type>,
 ) -> proc_macro2::TokenStream {
-    let context = format_ident!("ActuatorContext");
+    let context = format_ident!("__{}Context", name);
     let builder = format_ident!("{}Builder", name);
     let mut enums = Vec::new();
     let mut fields = Vec::new();
@@ -38,7 +38,7 @@ pub(super) fn expand(
             let variant = format_ident!("Message{}", index);
             variants.push(quote!(#variant(#ty)));
             arms.push(quote!(#message_enum::#variant(message) => {
-                let () = #handler(&task_context, &mut #state_var, message).await;
+                let () = #handler(&mut #state_var, message).await;
             }));
             if index < command_count {
                 routes.push(quote! {
@@ -115,7 +115,7 @@ pub(super) fn expand(
             fn try_route(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>;
         }
         #[derive(Clone)]
-        pub struct #context { #(#fields),* }
+        struct #context { #(#fields),* }
         #visibility struct #name {
             __context: #context,
             __done_tx: ::actor_framework::wasm::Sender<()>,
@@ -124,20 +124,6 @@ pub(super) fn expand(
         }
         #visibility struct #builder { #(#builder_fields),* }
         #(#routes)*
-        impl #context {
-            pub fn post<M>(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>
-            where Self: __ActorTrySendRoute<M> {
-                __ActorTrySendRoute::try_route(self, message)
-            }
-            pub async fn send<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
-            where Self: ::actor_framework::ActorSendRoute<M> {
-                ::actor_framework::ActorSendRoute::send_route(self, message).await
-            }
-            pub async fn publish<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
-            where Self: ::actor_framework::ActorPublishRoute<M> {
-                ::actor_framework::ActorPublishRoute::publish_route(self, message).await
-            }
-        }
         impl Drop for #name {
             fn drop(&mut self) { #(#closes)* }
         }
