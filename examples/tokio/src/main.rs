@@ -1,4 +1,4 @@
-use actor_framework::{actor_handler, actor_module, actor_system};
+use actor_framework::{ActorContext, actor_handler, actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -15,7 +15,7 @@ struct Logger {
     values: Arc<Mutex<Vec<u32>>>,
 }
 
-async fn add(context: &impl application::ActorContext, counter: &mut Counter, message: Add) {
+async fn add(context: &ActuatorContext, counter: &mut Counter, message: Add) {
     println!("[counter] received Add({})", message.0);
     counter.total += message.0;
     println!("[counter] publishing TotalChanged({})", counter.total);
@@ -32,11 +32,7 @@ static LOG: std::sync::LazyLock<Arc<Mutex<Vec<u32>>>> = std::sync::LazyLock::new
 
 actor_module! {
     pub manifest application;
-    context {
-        send: [];
-        publish: [TotalChanged];
-    }
-    events: [TotalChanged];
+events: [TotalChanged];
     actors: [
         counter: Counter {
             mailbox_capacity: 8;

@@ -9,11 +9,11 @@ pub struct Counter {
     pub total: u32,
 }
 
-pub async fn add(context: &impl counter::ActorContext, state: &mut Counter, message: Add) {
+#[actor_handler]
+pub async fn add(state: &mut Counter, message: Add) {
     println!("[module-lib/counter] received Add({})", message.0);
     state.total += message.0;
-    println!("[module-lib/counter] publishing Added({})", state.total);
-    context.publish(Added(state.total)).await.unwrap();
+    LAST.store(state.total, std::sync::atomic::Ordering::SeqCst);
 }
 
 pub struct Recorder;
@@ -27,8 +27,7 @@ pub async fn record(_state: &mut Recorder, event: Added) {
 
 actor_module! {
     pub manifest counter;
-    context { send: []; publish: [Added]; }
-    events: [Added];
+events: [Added];
     actors: [
         counter: Counter {
             mailbox_capacity: 8;

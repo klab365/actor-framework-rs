@@ -12,14 +12,13 @@ static EXECUTOR: StaticCell<embassy_executor::Executor> = StaticCell::new();
 struct Add(usize);
 struct Counter;
 
-async fn add(_context: &impl test_manifest::ActorContext, _actor: &mut Counter, message: Add) {
+async fn add(_context: &ActuatorContext, _actor: &mut Counter, message: Add) {
     OBSERVED.fetch_add(message.0, Ordering::SeqCst);
 }
 
 actor_module! {
     manifest test_manifest;
-    context { send: []; publish: []; }
-    events: [];
+events: [];
     actors: [
         counter: Counter {
             mailbox_capacity: 1;

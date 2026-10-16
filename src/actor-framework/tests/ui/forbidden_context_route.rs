@@ -1,20 +1,16 @@
-use actor_framework::{actor_module, actor_system};
+use actor_framework::{ActorContext, actor_module, actor_system};
 
 struct Allowed;
 struct Forbidden;
 struct State;
 
-async fn handle(context: &impl routes::ActorContext, _state: &mut State, _message: Allowed) {
+async fn handle(context: &ActuatorContext, _state: &mut State, _message: Allowed) {
     context.send(Forbidden).await.unwrap();
 }
 
 actor_module! {
     pub manifest routes;
-    context {
-        send: [Allowed];
-        publish: [];
-    }
-    events: [];
+events: [];
     actors: [
         worker: State {
             mailbox_capacity: 1;

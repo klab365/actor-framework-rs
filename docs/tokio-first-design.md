@@ -31,22 +31,18 @@ pub struct SensorActor {
     adc: Adc,
 }
 
-async fn get_analog_input(context: &impl sensors::ActorContext, actor: &mut SensorActor, command: GetAnalogInput) {
+async fn get_analog_input(context: &ActuatorContext, actor: &mut SensorActor, command: GetAnalogInput) {
     let value = actor.adc.read(command.channel).await;
     context.publish(AnalogValueChanged { channel: command.channel, value }).await.unwrap();
 }
 
-async fn record_analog_value(_context: &impl sensors::ActorContext, actor: &mut TelemetryActor, event: AnalogValueChanged) {
+async fn record_analog_value(_context: &ActuatorContext, actor: &mut TelemetryActor, event: AnalogValueChanged) {
     actor.record(event).await;
 }
 
 actor_module! {
     pub manifest sensors;
-    context {
-        send: [];
-        publish: [AnalogValueChanged];
-    }
-    events: [AnalogValueChanged];
+events: [AnalogValueChanged];
     actors: [
         sensor: SensorActor {
             mailbox_capacity: 8;
@@ -86,11 +82,11 @@ Das Beispiel zeigt die implementierte API-Syntax; konkrete App-Typen und Nachric
 
 ### `actor_module!`
 
-Das Manifest ist die einzige Quelle der Wahrheit für Routen. Es deklariert pro Actor den State-Typ, Mailbox-Kapazität und freie Handler-Funktionen. Context-freie Handler werden mit `#[actor_handler]` annotiert und haben die Form `async fn handler(state: &mut ActorState, message: Message) -> ()`. Handler mit ausgehender Kommunikation verwenden weiterhin `async fn handler(context: &impl sensors::ActorContext, state: &mut ActorState, message: Message) -> ()`. Beide werden im Manifest als `Message => handler` eingetragen. Der Modul-spezifische Context-Trait erhält die statisch geprüften, im Manifest erlaubten `send`- und `publish`-Routen.
+Das Manifest ist die einzige Quelle der Wahrheit für Routen. Es deklariert pro Actor den State-Typ, Mailbox-Kapazität und freie Handler-Funktionen. Context-freie Handler werden mit `#[actor_handler]` annotiert und haben die Form `async fn handler(state: &mut ActorState, message: Message) -> ()`. Handler mit ausgehender Kommunikation verwenden `async fn handler(context: &ActuatorContext, state: &mut ActorState, message: Message) -> ()`. Beide werden im Manifest als `Message => handler` eingetragen. `actor_system!` erzeugt `ActuatorContext`; seine Routen sind statisch geprüft.
 
 Das Makro erzeugt intern pro Actor einen Nachrichten-Enum und eine bounded Mailbox. Der Enum ist Implementierungsdetail: Nutzer müssen ihn nicht schreiben oder benennen. Die Manifest-Einträge liefern die Zuordnung der öffentlichen Nachrichtentypen zu den internen Mailbox-Varianten und Handlern.
 
-Zusätzlich erzeugt es ein Modul gleichen Namens wie das Manifest mit `ActorContext`, z. B. `sensors::ActorContext`. Handler verwenden diesen stabilen Trait als `&impl sensors::ActorContext`; sie müssen den Typ des späteren Systems nicht kennen. Die Modulsektion `context { send: [...]; publish: [...]; }` bestimmt die erlaubten ausgehenden Routen. Der generierte Dispatcher implementiert diesen Context-Trait nur, wenn die Routen im komponierten System vorhanden sind.
+`actor_system!` erzeugt im Application-Root `ActuatorContext`. Handler mit ausgehender Kommunikation verwenden ihn als `&ActuatorContext`; der konkrete Typ enthält nur die Routen des komponierten Systems.
 
 Der Makro-Output stellt `actor_system!` ein statisches Manifest-Makro bereit. Systeme komponieren die Manifeste explizit; es gibt keine implizite Registrierung.
 
@@ -155,7 +151,7 @@ Tokio-Actors benötigen die `Send + 'static`-Grenzen von `tokio::spawn`. Diese B
 
 ## Prototypstatus
 
-Ein Tokio-Vertical-Slice mit `actor_module!`-Manifesten, expliziter Mehrmodul-Komposition über `actor_system!` und moduldefinierten `ActorContext`-Traits ist implementiert. Der `context { send: [...]; publish: [...]; }`-Block erlaubt nur die deklarierten Routen. Builder nehmen die konkreten State-Instanzen entgegen. Die Crate-Grenze ist mit `examples/module-lib` und `examples/module-app` geprüft: eine Library exportiert ihr Manifest und die App komponiert es, ohne Handler oder Context an ihren Systemnamen zu koppeln. Integrationstests unter `src/actor-framework/tests/actor_module.rs` decken Modul-Komposition, Command-Orchestrierung, Fan-out, Events ohne Subscriber und fehlenden State ab.
+Ein Tokio-Vertical-Slice mit `actor_module!`-Manifesten, expliziter Mehrmodul-Komposition über `actor_system!` und einem von `actor_system!` erzeugten `ActuatorContext` ist implementiert. Builder nehmen die konkreten State-Instanzen entgegen. Die Crate-Grenze ist mit `examples/module-lib` und `examples/module-app` geprüft: eine Library exportiert ihr Manifest und die App komponiert es, ohne Handler oder Context an ihren Systemnamen zu koppeln. Integrationstests unter `src/actor-framework/tests/actor_module.rs` decken Modul-Komposition, Command-Orchestrierung, Fan-out, Events ohne Subscriber und fehlenden State ab.
 
 Compile-Fail-Tests in `src/actor-framework/tests/ui/` prüfen doppelte Command-Routen und den Versuch, einen unbekannten Command zu senden. Der unbekannte Command schlägt derzeit beim Typabgleich fehl; eine gezieltere Diagnose wäre eine DX-Verbesserung.
 

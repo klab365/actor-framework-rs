@@ -1,6 +1,8 @@
 #![cfg(all(feature = "wasm", target_arch = "wasm32"))]
 
-use actor_framework::{ActorSendRoute, Receiver, TrySendError, actor_handler, actor_module, actor_system, wasm};
+use actor_framework::{
+    ActorContext, ActorSendRoute, Receiver, TrySendError, actor_handler, actor_module, actor_system, wasm,
+};
 use std::{cell::Cell, rc::Rc};
 use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -18,7 +20,7 @@ fn capacity() -> usize {
     CAPACITY.with(Cell::get)
 }
 
-pub async fn add(context: &impl counters::ActorContext, state: &mut Counter, command: Add) {
+pub async fn add(context: &ActuatorContext, state: &mut Counter, command: Add) {
     state.0.set(state.0.get() + command.0);
     // Shutdown closes every destination: outgoing routes may already be closed.
     let _ = context.publish(Changed(state.0.get())).await;
@@ -30,8 +32,7 @@ pub async fn observe(state: &mut Observer, event: Changed) {
 
 actor_module! {
     pub manifest counters;
-    context { send: [Add]; publish: [Changed, Unobserved]; }
-    events: [Changed, Unobserved];
+events: [Changed, Unobserved];
     actors: [
         counter: Counter {
             mailbox_capacity: capacity();

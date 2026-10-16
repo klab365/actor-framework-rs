@@ -6,7 +6,7 @@ pub(super) fn expand(
     actors: Vec<ActorDef>,
     events: Vec<Type>,
 ) -> proc_macro2::TokenStream {
-    let context = format_ident!("__{}Context", name);
+    let context = format_ident!("ActuatorContext");
     let builder = format_ident!("{}Builder", name);
     let mut enums = Vec::new();
     let mut fields = Vec::new();
@@ -126,7 +126,7 @@ pub(super) fn expand(
             fn try_route(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>;
         }
         #[derive(Clone)]
-        struct #context { #(#fields),* }
+        pub struct #context { #(#fields),* }
         #visibility struct #name {
             __context: #context,
             __done_tx: ::actor_framework::wasm::Sender<()>,

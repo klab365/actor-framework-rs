@@ -15,7 +15,7 @@ struct ObserverState {
     observed: Arc<Mutex<Vec<u32>>>,
 }
 
-async fn increment(context: &impl counter_module::ActorContext, state: &mut CounterState, amount: u32) {
+async fn increment(context: &ActuatorContext, state: &mut CounterState, amount: u32) {
     state.value += amount;
     context.publish(CounterChanged(state.value)).await.unwrap();
 }
@@ -26,11 +26,7 @@ async fn observe(_context: &impl ActorContext, state: &mut ObserverState, event:
 
 actor_framework::actor_module! {
     pub manifest counter_module;
-    context {
-        send: [];
-        publish: [CounterChanged];
-    }
-    events: [CounterChanged];
+events: [CounterChanged];
     actors: [
         counter: CounterState {
             mailbox_capacity: 4;

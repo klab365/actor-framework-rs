@@ -30,7 +30,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
     let name = input.name;
     let visibility = input.visibility;
     let builder = format_ident!("{}Builder", name);
-    let context = format_ident!("__{}EmbassyContext", name);
+    let context = format_ident!("ActuatorContext");
     let worker_count = input.actors.len();
     let mut enums = Vec::new();
     let mut context_fields = Vec::new();
@@ -202,7 +202,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         #(#enums)*
         #(#task_fns)*
         #[doc(hidden)] pub trait __ActorTrySendRoute<M> { fn try_route(&self, message:M)->Result<(),::actor_framework::TrySendError<M>>; }
-        #[derive(Clone)] struct #context { #(#context_fields),*, __lifecycle: &'static ::actor_framework::embassy::Lifecycle }
+        #[derive(Clone)] pub struct #context { #(#context_fields),*, __lifecycle: &'static ::actor_framework::embassy::Lifecycle }
         #(#command_routes)* #(#publish)* #(#ctx_impls)*
         #visibility struct #name { __context: #context }
         #visibility struct #builder { #(#builder_fields),* }

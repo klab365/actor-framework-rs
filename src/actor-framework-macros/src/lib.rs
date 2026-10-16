@@ -208,21 +208,9 @@ pub fn actor_module(input: TokenStream) -> TokenStream {
     let manifest = input.manifest;
     let actors = input.actors;
     let events = input.events;
-    let sends = input.sends;
-    let publishes = input.publishes;
-    let actor_tokens = actors.iter().map(|actor| quote_actor(actor, &manifest));
+    let actor_tokens = actors.iter().map(quote_actor);
     let event_tokens = events.iter().map(module_type);
-    let send_bounds = sends
-        .iter()
-        .map(|message| quote! { + ::actor_framework::ActorSendRoute<#message> });
-    let publish_bounds = publishes
-        .iter()
-        .map(|message| quote! { + ::actor_framework::ActorPublishRoute<#message> });
     quote! {
-        pub mod #manifest {
-            use super::*;
-            pub trait ActorContext: ::actor_framework::ActorContext #(#send_bounds)* #(#publish_bounds)* {}
-        }
         #[macro_export]
         macro_rules! #manifest {
             ($callback:path, { $vis:vis struct $name:ident; actors: [$($existing:tt)*]; events: [$($known_events:ty,)*]; remaining: [$($remaining:ident,)*]; }) => {
@@ -242,8 +230,6 @@ struct ModuleInput {
     manifest: Ident,
     actors: Vec<ActorDef>,
     events: Vec<Type>,
-    sends: Vec<Type>,
-    publishes: Vec<Type>,
 }
 
 impl Parse for ModuleInput {
@@ -252,26 +238,6 @@ impl Parse for ModuleInput {
         expect_ident(input, "manifest")?;
         let manifest = input.parse()?;
         input.parse::<Token![;]>()?;
-        expect_ident(input, "context")?;
-        let context_body;
-        syn::braced!(context_body in input);
-        let mut sends = Vec::new();
-        let mut publishes = Vec::new();
-        while !context_body.is_empty() {
-            let capability: Ident = context_body.parse()?;
-            context_body.parse::<Token![:]>()?;
-            let types_body;
-            syn::bracketed!(types_body in context_body);
-            let types = Punctuated::<Type, Token![,]>::parse_terminated(&types_body)?
-                .into_iter()
-                .collect::<Vec<_>>();
-            context_body.parse::<Token![;]>()?;
-            match capability.to_string().as_str() {
-                "send" => sends.extend(types),
-                "publish" => publishes.extend(types),
-                _ => return Err(syn::Error::new(capability.span(), "expected `send` or `publish`")),
-            }
-        }
         expect_ident(input, "events")?;
         input.parse::<Token![:]>()?;
         let event_body;
@@ -292,8 +258,6 @@ impl Parse for ModuleInput {
             manifest,
             actors,
             events,
-            sends,
-            publishes,
         })
     }
 }
@@ -324,10 +288,9 @@ fn module_handler(path: &Path) -> proc_macro2::TokenStream {
     }
 }
 
-fn quote_actor(actor: &ActorDef, module: &Ident) -> proc_macro2::TokenStream {
+fn quote_actor(actor: &ActorDef) -> proc_macro2::TokenStream {
     let field = &actor.field;
     let state = module_type(&actor.state);
-    let context = quote!($crate::#module::ActorContext);
     let capacity = &actor.capacity;
     let commands = actor.commands.iter().map(|route| {
         let message = module_type(&route.message);
@@ -341,7 +304,6 @@ fn quote_actor(actor: &ActorDef, module: &Ident) -> proc_macro2::TokenStream {
     });
     quote! {
         #field: #state {
-            context: #context;
             mailbox_capacity: #capacity;
             commands { #(#commands)* }
             events { #(#events)* }
@@ -397,7 +359,7 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
             });
         quote! { #[allow(non_camel_case_types)] enum #msg_enum { #(#variants),* } }
     });
-    let context_type = format_ident!("__{}Context", name);
+    let context_type = format_ident!("ActuatorContext");
     let handle_fields: Vec<_> = actors
         .iter()
         .map(|actor| {
@@ -612,7 +574,7 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
         }
 
         #[doc(hidden)]
-        struct #context_type {
+        pub struct #context_type {
             #(#handle_fields),*,
             __shutdown: ::tokio::sync::watch::Receiver<bool>,
         }

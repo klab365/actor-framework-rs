@@ -3,14 +3,13 @@ use actor_framework::{actor_module, actor_system};
 struct Command;
 struct State;
 
-async fn handle(_context: &impl routes::ActorContext, _state: &mut State, _message: Command) -> Result<(), ()> {
+async fn handle(_context: &ActuatorContext, _state: &mut State, _message: Command) -> Result<(), ()> {
     Ok(())
 }
 
 actor_module! {
     pub manifest routes;
-    context {}
-    events: [];
+events: [];
     actors: [
         worker: State {
             mailbox_capacity: 1;

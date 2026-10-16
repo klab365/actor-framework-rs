@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use actor_framework::{actor_handler, actor_module, actor_system};
+use actor_framework::{ActorContext, actor_handler, actor_module, actor_system};
 use embassy_executor::Spawner;
 use panic_halt as _;
 
@@ -11,7 +11,7 @@ struct TotalChanged(u32);
 struct Counter(u32);
 struct Logger;
 
-async fn add(context: &impl app::ActorContext, counter: &mut Counter, message: Add) {
+async fn add(context: &ActuatorContext, counter: &mut Counter, message: Add) {
     counter.0 = counter.0.wrapping_add(message.0);
     context
         .publish(TotalChanged(counter.0))
@@ -26,8 +26,7 @@ async fn log(_logger: &mut Logger, event: TotalChanged) {
 
 actor_module! {
     manifest app;
-    context { send: []; publish: [TotalChanged]; }
-    events: [TotalChanged];
+events: [TotalChanged];
     actors: [
         counter: Counter {
             mailbox_capacity: 4;

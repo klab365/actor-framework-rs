@@ -34,7 +34,7 @@ impl ActivityLed {
     }
 }
 
-async fn count_press(context: &impl buttons::ActorContext, counter: &mut Counter, _: ButtonPressed) {
+async fn count_press(context: &ActuatorContext, counter: &mut Counter, _: ButtonPressed) {
     counter.count = counter.count.wrapping_add(1);
     context
         .publish(PressObserved(counter.count))
@@ -51,8 +51,7 @@ async fn blink(_context: &impl ActorContext, led: &mut ActivityLed, event: Press
 
 actor_module! {
     manifest buttons;
-    context { send: []; publish: [PressObserved]; }
-    events: [PressObserved];
+events: [PressObserved];
     actors: [
         counter: Counter {
             mailbox_capacity: 4;

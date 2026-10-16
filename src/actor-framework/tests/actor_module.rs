@@ -42,7 +42,7 @@ static SLOW_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 static SHUTDOWN_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SHUTDOWN_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
-async fn increment(context: &impl counters::ActorContext, state: &mut Counter, amount: u32) {
+async fn increment(context: &ActuatorContext, state: &mut Counter, amount: u32) {
     state.value += amount;
     context.publish(Changed(state.value)).await.unwrap();
     context.send(Reset).await.unwrap();
@@ -111,11 +111,7 @@ static QUEUE_COMPLETED: std::sync::atomic::AtomicUsize = std::sync::atomic::Atom
 
 actor_module! {
     pub manifest counters;
-    context {
-        send: [Reset];
-        publish: [Changed];
-    }
-    events: [Changed, Unobserved];
+events: [Changed, Unobserved];
     actors: [
         counter: Counter {
             mailbox_capacity: 2;
@@ -137,8 +133,7 @@ actor_module! {
 
 actor_module! {
     pub manifest maintenance;
-    context {}
-    events: [];
+events: [];
     actors: [
         crash_actor: CrashActor {
             mailbox_capacity: 1;
