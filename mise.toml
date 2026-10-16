@@ -1,0 +1,42 @@
+[tools]
+rust = { version = "stable", components = ["clippy", "rustfmt"] }
+
+[tasks.check]
+description = "Check the runtime-neutral crate boundary"
+run = "cargo check --workspace --no-default-features"
+
+[tasks.check-tokio]
+description = "Check the Tokio implementation"
+run = "cargo check --workspace --all-features"
+
+[tasks.check-format]
+description = "Check Rust formatting"
+run = "cargo fmt --all -- --check"
+
+[tasks.format]
+description = "Format Rust code"
+run = "cargo fmt --all"
+
+[tasks.lint]
+description = "Lint the Tokio implementation"
+run = "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+
+[tasks.test]
+description = "Run Tokio implementation tests"
+run = "cargo test --workspace --all-features"
+
+[tasks.docs]
+description = "Build Tokio implementation documentation"
+run = "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps"
+
+[tasks.check-example]
+description = "Run the Tokio actor-system example"
+run = "cargo run --manifest-path examples/tokio/Cargo.toml"
+
+[tasks.check-module-example]
+description = "Run the cross-crate actor module example"
+run = "cargo run -p actor-framework-module-app-example"
+
+[tasks.publish-dry-run]
+description = "Verify workspace crates can be packaged and published"
+run = "cargo publish --workspace --dry-run --allow-dirty"

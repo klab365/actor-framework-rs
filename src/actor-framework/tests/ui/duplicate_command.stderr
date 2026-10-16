@@ -1,0 +1,20 @@
+error: a command may have only one actor handler
+  --> tests/ui/duplicate_command.rs:9:1
+   |
+ 9 | / actor_module! {
+10 | |     pub manifest routes;
+11 | |     context {}
+12 | |     events: [];
+...  |
+24 | |     ];
+25 | | }
+   | |_^
+26 |
+27 | / actor_system! {
+28 | |     pub struct App {
+29 | |         modules: [routes];
+30 | |     }
+31 | | }
+   | |_- in this macro invocation
+   |
+   = note: this error originates in the macro `routes` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)

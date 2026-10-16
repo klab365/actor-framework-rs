@@ -1,0 +1,65 @@
+error[E0308]: mismatched types
+  --> tests/ui/unknown_command.rs:29:22
+   |
+29 |     let _ = app.send(Unknown).await;
+   |                 ---- ^^^^^^^ expected `Known`, found `Unknown`
+   |                 |
+   |                 arguments to this method are incorrect
+   |
+help: the return type of this call is `Unknown` due to the type of the argument passed
+  --> tests/ui/unknown_command.rs:29:13
+   |
+29 |     let _ = app.send(Unknown).await;
+   |             ^^^^^^^^^-------^
+   |                      |
+   |                      this argument influences the return type of `send`
+note: method defined here
+  --> tests/ui/unknown_command.rs:9:1
+   |
+ 9 | / actor_module! {
+10 | |     pub manifest routes;
+11 | |     context {}
+12 | |     events: [];
+...  |
+19 | |     ];
+20 | | }
+   | |_^
+21 |
+22 | / actor_system! {
+23 | |     pub struct App {
+24 | |         modules: [routes];
+25 | |     }
+26 | | }
+   | |_- in this macro invocation
+   = note: this error originates in the macro `$crate::__actor_system` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/ui/unknown_command.rs:9:1
+   |
+ 9 | / actor_module! {
+10 | |     pub manifest routes;
+11 | |     context {}
+12 | |     events: [];
+...  |
+19 | |     ];
+20 | | }
+   | | ^
+   | | |
+   | |_expected `&App`, found `&__AppContext`
+   |   arguments to this function are incorrect
+21 |
+22 | / actor_system! {
+23 | |     pub struct App {
+24 | |         modules: [routes];
+25 | |     }
+26 | | }
+   | |_- in this macro invocation
+   |
+   = note: expected reference `&App`
+              found reference `&__AppContext`
+note: function defined here
+  --> tests/ui/unknown_command.rs:7:10
+   |
+ 7 | async fn handle(_: &App, _: &mut State, _: Known) {}
+   |          ^^^^^^ -------
+   = note: this error originates in the macro `$crate::__actor_system` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
