@@ -12,9 +12,7 @@ pub mod core;
 pub mod embassy;
 #[cfg(feature = "wasm")]
 pub mod wasm;
-pub use crate::core::{
-    Actor, ActorContext, ActorPublishRoute, ActorSendRoute, Mailbox, Receiver, SendError, TrySendError, run,
-};
+pub use crate::core::{Actor, ActorPublishRoute, ActorSendRoute, Mailbox, Receiver, SendError, TrySendError, run};
 #[cfg(feature = "embassy")]
 #[doc(hidden)]
 pub use embassy_futures as __embassy_futures;

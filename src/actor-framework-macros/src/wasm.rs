@@ -19,7 +19,6 @@ pub(super) fn expand(
     let mut spawns = Vec::new();
     let mut closes = Vec::new();
     let mut routes = Vec::new();
-    let mut contexts = Vec::new();
     let mut event_groups: Vec<(Type, Vec<proc_macro2::TokenStream>)> =
         events.into_iter().map(|ty| (ty, Vec::new())).collect();
 
@@ -39,7 +38,7 @@ pub(super) fn expand(
             let variant = format_ident!("Message{}", index);
             variants.push(quote!(#variant(#ty)));
             arms.push(quote!(#message_enum::#variant(message) => {
-                let () = #handler(&task_context, &mut #state_var, message).await;
+                let () = #handler(&mut #state_var, message).await;
             }));
             if index < command_count {
                 routes.push(quote! {
@@ -97,17 +96,7 @@ pub(super) fn expand(
                 let _ = ::actor_framework::ActorSendRoute::send_route(&done, ()).await;
             });
         });
-        if let Some(context) = actor.context {
-            let key = quote!(#context).to_string();
-            if !contexts.iter().any(|(existing, _)| existing == &key) {
-                contexts.push((key, context));
-            }
-        }
     }
-    // Module capabilities belong to the handler context, not the public handle.
-    let context_impls = contexts
-        .into_iter()
-        .map(|(_, module_context)| quote!(impl #module_context for #context {}));
     for (ty, sends) in event_groups {
         routes.push(quote! {
             impl ::actor_framework::ActorPublishRoute<#ty> for #context {
@@ -135,7 +124,6 @@ pub(super) fn expand(
         }
         #visibility struct #builder { #(#builder_fields),* }
         #(#routes)*
-        #(#context_impls)*
         impl Drop for #name {
             fn drop(&mut self) { #(#closes)* }
         }

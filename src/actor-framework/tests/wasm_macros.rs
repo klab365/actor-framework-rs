@@ -18,18 +18,16 @@ fn capacity() -> usize {
     CAPACITY.with(Cell::get)
 }
 
-pub async fn add(context: &impl counters::ActorContext, state: &mut Counter, command: Add) {
+pub async fn add(state: &mut Counter, command: Add) {
     state.0.set(state.0.get() + command.0);
     // Shutdown closes every destination: outgoing routes may already be closed.
-    let _ = context.publish(Changed(state.0.get())).await;
 }
-pub async fn observe(_: &impl counters::ActorContext, state: &mut Observer, event: Changed) {
+pub async fn observe(state: &mut Observer, event: Changed) {
     state.0.send_route(event.0).await.unwrap();
 }
 
 actor_module! {
     pub manifest counters;
-    context { send: [Add]; publish: [Changed, Unobserved]; }
     events: [Changed, Unobserved];
     actors: [
         counter: Counter {

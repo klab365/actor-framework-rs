@@ -26,5 +26,5 @@ async fn main() {
     }
     let observed = LAST.load(std::sync::atomic::Ordering::SeqCst);
     assert_eq!(observed, 5);
-    println!("[module-app] imported module published and recorded Added({observed})");
+    println!("[module-app] imported module processed Add(5); recorded total {observed}");
 }

@@ -48,7 +48,6 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
     let mut shutdown_sends = Vec::new();
     let mut event_groups: Vec<(syn::Type, Vec<TokenStream>)> =
         input.events.into_iter().map(|t| (t, Vec::new())).collect();
-    let mut module_contexts: Vec<(String, syn::Type)> = Vec::new();
 
     for actor in input.actors.clone() {
         let field = actor.field;
@@ -92,7 +91,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
             .map(|(i, route)| {
                 let v = format_ident!("Message{i}");
                 let handler = &route.handler;
-                quote!(#msg::#v(message) => { let () = #handler(&task_context, &mut actor, message).await; })
+                quote!(#msg::#v(message) => { let () = #handler(&mut actor, message).await; })
             })
             .collect();
         task_fns.push(quote! {
@@ -158,12 +157,6 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
                 event_groups.push((message.clone(), vec![entry]));
             }
         }
-        if let Some(module) = actor.context {
-            let key = quote!(#module).to_string();
-            if !module_contexts.iter().any(|(k, _)| k == &key) {
-                module_contexts.push((key, module));
-            }
-        }
     }
     let shutdown_task = format_ident!("__{}_shutdown_task", name.to_string().to_lowercase());
     let shutdown_token = format_ident!("__{}_shutdown_token", name.to_string().to_lowercase());
@@ -183,7 +176,6 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
     });
     token_spawns.push(quote!(spawner.spawn(#shutdown_token);));
 
-    let ctx_impls = module_contexts.iter().map(|(_, t)| quote!(impl #t for #context {}));
     let publish = event_groups.iter().map(|(ty,sends)| quote! {
         impl ::actor_framework::ActorPublishRoute<#ty> for #context {
             async fn publish_route(&self, message: #ty) -> Result<(), ::actor_framework::SendError> { if self.__lifecycle.is_closed() { return Err(::actor_framework::SendError); } #(#sends)* Ok(()) }
@@ -203,7 +195,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         #(#task_fns)*
         #[doc(hidden)] pub trait __ActorTrySendRoute<M> { fn try_route(&self, message:M)->Result<(),::actor_framework::TrySendError<M>>; }
         #[derive(Clone)] struct #context { #(#context_fields),*, __lifecycle: &'static ::actor_framework::embassy::Lifecycle }
-        #(#command_routes)* #(#publish)* #(#ctx_impls)*
+        #(#command_routes)* #(#publish)*
         #visibility struct #name { __context: #context }
         #visibility struct #builder { #(#builder_fields),* }
         impl #name { pub fn builder()->#builder { #builder { #(#empty),* } }

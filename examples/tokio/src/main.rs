@@ -1,4 +1,4 @@
-use actor_framework::{ActorContext, actor_module, actor_system};
+use actor_framework::{actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -15,14 +15,13 @@ struct Logger {
     values: Arc<Mutex<Vec<u32>>>,
 }
 
-async fn add(context: &impl application::ActorContext, counter: &mut Counter, message: Add) {
+async fn add(counter: &mut Counter, message: Add) {
     println!("[counter] received Add({})", message.0);
     counter.total += message.0;
-    println!("[counter] publishing TotalChanged({})", counter.total);
-    context.publish(TotalChanged(counter.total)).await.unwrap();
+    println!("[counter] total is {}", counter.total);
 }
 
-async fn log(_context: &impl ActorContext, logger: &mut Logger, event: TotalChanged) {
+async fn log(logger: &mut Logger, event: TotalChanged) {
     println!("[logger] received TotalChanged({})", event.0);
     logger.values.lock().await.push(event.0);
 }
@@ -31,10 +30,6 @@ static LOG: std::sync::LazyLock<Arc<Mutex<Vec<u32>>>> = std::sync::LazyLock::new
 
 actor_module! {
     pub manifest application;
-    context {
-        send: [];
-        publish: [TotalChanged];
-    }
     events: [TotalChanged];
     actors: [
         counter: Counter {
@@ -69,6 +64,11 @@ async fn main() {
     actors.send(Add(5)).await.expect("counter is running");
     println!("[main] sending Add(7)");
     actors.send(Add(7)).await.expect("counter is running");
+
+    // Handler-to-handler communication is deferred to issue #22. Demonstrate
+    // event routing independently through the application-owned system handle.
+    actors.publish(TotalChanged(5)).await.expect("logger is running");
+    actors.publish(TotalChanged(12)).await.expect("logger is running");
 
     for _ in 0..20 {
         if LOG.lock().await.as_slice() == [5, 12] {

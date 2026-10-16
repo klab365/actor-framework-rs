@@ -1,6 +1,6 @@
 #![cfg(feature = "tokio")]
 
-use actor_framework::{ActorContext, actor_system};
+use actor_framework::actor_system;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -15,21 +15,16 @@ struct ObserverState {
     observed: Arc<Mutex<Vec<u32>>>,
 }
 
-async fn increment(context: &impl counter_module::ActorContext, state: &mut CounterState, amount: u32) {
+async fn increment(state: &mut CounterState, amount: u32) {
     state.value += amount;
-    context.publish(CounterChanged(state.value)).await.unwrap();
 }
 
-async fn observe(_context: &impl ActorContext, state: &mut ObserverState, event: CounterChanged) {
+async fn observe(state: &mut ObserverState, event: CounterChanged) {
     state.observed.lock().await.push(event.0);
 }
 
 actor_framework::actor_module! {
     pub manifest counter_module;
-    context {
-        send: [];
-        publish: [CounterChanged];
-    }
     events: [CounterChanged];
     actors: [
         counter: CounterState {
@@ -74,6 +69,7 @@ async fn sends_command_and_broadcasts_event_to_all_subscribers() {
         .start()
         .unwrap();
     actors.send(3_u32).await.unwrap();
+    actors.publish(CounterChanged(3)).await.unwrap();
     tokio::task::yield_now().await;
     assert_eq!(*OBSERVED_A.lock().await, vec![3]);
     assert_eq!(*OBSERVED_B.lock().await, vec![3]);

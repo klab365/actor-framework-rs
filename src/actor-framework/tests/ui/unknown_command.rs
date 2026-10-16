@@ -4,11 +4,10 @@ struct Known;
 struct Unknown;
 struct State;
 
-async fn handle(_: &App, _: &mut State, _: Known) {}
+async fn handle(_: &mut State, _: Known) {}
 
 actor_module! {
     pub manifest routes;
-    context {}
     events: [];
     actors: [
         actor: State {
