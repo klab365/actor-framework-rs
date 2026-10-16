@@ -1,8 +1,6 @@
 #![cfg(all(feature = "wasm", target_arch = "wasm32"))]
 
-use actor_framework::{
-    ActorContext, ActorSendRoute, Receiver, TrySendError, actor_handler, actor_module, actor_system, wasm,
-};
+use actor_framework::{ActorSendRoute, Receiver, TrySendError, actor_handler, actor_module, actor_system, wasm};
 use std::{cell::Cell, rc::Rc};
 use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -32,7 +30,7 @@ pub async fn observe(state: &mut Observer, event: Changed) {
 
 actor_module! {
     pub manifest counters;
-events: [Changed, Unobserved];
+    events: [Changed, Unobserved];
     actors: [
         counter: Counter {
             mailbox_capacity: capacity();

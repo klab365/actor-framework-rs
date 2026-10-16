@@ -27,7 +27,7 @@ pub async fn record(_state: &mut Recorder, event: Added) {
 
 actor_module! {
     pub manifest counter;
-events: [Added];
+    events: [Added];
     actors: [
         counter: Counter {
             mailbox_capacity: 8;

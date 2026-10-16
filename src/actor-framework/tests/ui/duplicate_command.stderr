@@ -3,7 +3,7 @@ error: a command may have only one actor handler
    |
  9 | / actor_module! {
 10 | |     pub manifest routes;
-11 | | events: [];
+11 | |     events: [];
 12 | |     actors: [
 ...  |
 23 | |     ];

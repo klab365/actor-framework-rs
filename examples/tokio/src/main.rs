@@ -1,4 +1,4 @@
-use actor_framework::{ActorContext, actor_handler, actor_module, actor_system};
+use actor_framework::{actor_handler, actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -32,7 +32,7 @@ static LOG: std::sync::LazyLock<Arc<Mutex<Vec<u32>>>> = std::sync::LazyLock::new
 
 actor_module! {
     pub manifest application;
-events: [TotalChanged];
+    events: [TotalChanged];
     actors: [
         counter: Counter {
             mailbox_capacity: 8;

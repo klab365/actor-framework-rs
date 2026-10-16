@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use actor_framework::{ActorContext, actor_module, actor_system};
+use actor_framework::{actor_module, actor_system};
 use defmt::info;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
@@ -42,7 +42,7 @@ async fn count_press(context: &ActuatorContext, counter: &mut Counter, _: Button
         .expect("LED actor is running");
 }
 
-async fn blink(_context: &impl ActorContext, led: &mut ActivityLed, event: PressObserved) {
+async fn blink(_context: &ActuatorContext, led: &mut ActivityLed, event: PressObserved) {
     led.toggle();
     info!("micro:bit button A pressed {} times", event.0);
     Timer::after(Duration::from_millis(100)).await;
@@ -51,7 +51,7 @@ async fn blink(_context: &impl ActorContext, led: &mut ActivityLed, event: Press
 
 actor_module! {
     manifest buttons;
-events: [PressObserved];
+    events: [PressObserved];
     actors: [
         counter: Counter {
             mailbox_capacity: 4;

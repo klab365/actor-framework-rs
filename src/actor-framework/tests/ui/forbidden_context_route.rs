@@ -1,4 +1,4 @@
-use actor_framework::{ActorContext, actor_module, actor_system};
+use actor_framework::{actor_module, actor_system};
 
 struct Allowed;
 struct Forbidden;
@@ -10,7 +10,7 @@ async fn handle(context: &ActuatorContext, _state: &mut State, _message: Allowed
 
 actor_module! {
     pub manifest routes;
-events: [];
+    events: [];
     actors: [
         worker: State {
             mailbox_capacity: 1;

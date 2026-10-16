@@ -18,7 +18,7 @@ async fn add(_context: &ActuatorContext, _actor: &mut Counter, message: Add) {
 
 actor_module! {
     manifest test_manifest;
-events: [];
+    events: [];
     actors: [
         counter: Counter {
             mailbox_capacity: 1;

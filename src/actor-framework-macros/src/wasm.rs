@@ -19,7 +19,6 @@ pub(super) fn expand(
     let mut spawns = Vec::new();
     let mut closes = Vec::new();
     let mut routes = Vec::new();
-    let mut contexts = Vec::new();
     let mut event_groups: Vec<(Type, Vec<proc_macro2::TokenStream>)> =
         events.into_iter().map(|ty| (ty, Vec::new())).collect();
 
@@ -97,17 +96,7 @@ pub(super) fn expand(
                 let _ = ::actor_framework::ActorSendRoute::send_route(&done, ()).await;
             });
         });
-        if let Some(context) = actor.context {
-            let key = quote!(#context).to_string();
-            if !contexts.iter().any(|(existing, _)| existing == &key) {
-                contexts.push((key, context));
-            }
-        }
     }
-    // Module capabilities belong to the handler context, not the public handle.
-    let context_impls = contexts
-        .into_iter()
-        .map(|(_, module_context)| quote!(impl #module_context for #context {}));
     for (ty, sends) in event_groups {
         routes.push(quote! {
             impl ::actor_framework::ActorPublishRoute<#ty> for #context {
@@ -135,7 +124,20 @@ pub(super) fn expand(
         }
         #visibility struct #builder { #(#builder_fields),* }
         #(#routes)*
-        #(#context_impls)*
+        impl #context {
+            pub fn post<M>(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>
+            where Self: __ActorTrySendRoute<M> {
+                __ActorTrySendRoute::try_route(self, message)
+            }
+            pub async fn send<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
+            where Self: ::actor_framework::ActorSendRoute<M> {
+                ::actor_framework::ActorSendRoute::send_route(self, message).await
+            }
+            pub async fn publish<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
+            where Self: ::actor_framework::ActorPublishRoute<M> {
+                ::actor_framework::ActorPublishRoute::publish_route(self, message).await
+            }
+        }
         impl Drop for #name {
             fn drop(&mut self) { #(#closes)* }
         }

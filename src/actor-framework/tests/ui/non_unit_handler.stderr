@@ -3,7 +3,7 @@ error[E0308]: mismatched types
    |
 10 | / actor_module! {
 11 | |     pub manifest routes;
-12 | | events: [];
+12 | |     events: [];
 13 | |     actors: [
 ...  |
 19 | |     ];

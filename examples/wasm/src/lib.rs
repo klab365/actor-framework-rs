@@ -45,7 +45,7 @@ pub async fn receive_pong(context: &ActuatorContext, state: &mut PongActor, Pong
 
 actor_module! {
     manifest ping_pong;
-events: [];
+    events: [];
     actors: [
         ping: PingActor {
             mailbox_capacity: 1;

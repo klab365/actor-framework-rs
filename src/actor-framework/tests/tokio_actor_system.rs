@@ -1,6 +1,6 @@
 #![cfg(feature = "tokio")]
 
-use actor_framework::{ActorContext, actor_system};
+use actor_framework::actor_system;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -20,13 +20,13 @@ async fn increment(context: &ActuatorContext, state: &mut CounterState, amount: 
     context.publish(CounterChanged(state.value)).await.unwrap();
 }
 
-async fn observe(_context: &impl ActorContext, state: &mut ObserverState, event: CounterChanged) {
+async fn observe(_context: &ActuatorContext, state: &mut ObserverState, event: CounterChanged) {
     state.observed.lock().await.push(event.0);
 }
 
 actor_framework::actor_module! {
     pub manifest counter_module;
-events: [CounterChanged];
+    events: [CounterChanged];
     actors: [
         counter: CounterState {
             mailbox_capacity: 4;
