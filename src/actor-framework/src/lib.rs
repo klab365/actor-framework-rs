@@ -46,7 +46,7 @@ pub use actor_framework_macros::__actor_system_embassy as __actor_system;
 #[doc(hidden)]
 pub use actor_framework_macros::__actor_system_wasm as __actor_system;
 #[cfg(any(feature = "tokio", feature = "wasm", feature = "embassy"))]
-pub use actor_framework_macros::actor_module;
+pub use actor_framework_macros::{actor_handler, actor_module};
 
 /// Compose manifests using the selected runtime backend.
 #[cfg(any(feature = "tokio", feature = "wasm", feature = "embassy"))]

@@ -1,4 +1,4 @@
-use actor_framework::{ActorContext, actor_module, actor_system};
+use actor_framework::{actor_handler, actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -22,7 +22,8 @@ async fn add(context: &impl application::ActorContext, counter: &mut Counter, me
     context.publish(TotalChanged(counter.total)).await.unwrap();
 }
 
-async fn log(_context: &impl ActorContext, logger: &mut Logger, event: TotalChanged) {
+#[actor_handler]
+async fn log(logger: &mut Logger, event: TotalChanged) {
     println!("[logger] received TotalChanged({})", event.0);
     logger.values.lock().await.push(event.0);
 }

@@ -4,7 +4,7 @@ mod wasm;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    Expr, Ident, Path, Result, Token, Type,
+    Expr, FnArg, Ident, ItemFn, Path, Result, Token, Type,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
@@ -169,6 +169,36 @@ fn expect_ident(input: ParseStream<'_>, expected: &str) -> Result<()> {
     } else {
         Err(syn::Error::new(actual.span(), format!("expected `{expected}`")))
     }
+}
+
+/// Adapt a context-free actor handler to the dispatcher calling convention.
+///
+/// A handler with `(state, message)` receives an unused core context argument;
+/// handlers that already declare `(context, state, message)` are unchanged.
+#[proc_macro_attribute]
+pub fn actor_handler(_attribute: TokenStream, input: TokenStream) -> TokenStream {
+    let mut function = parse_macro_input!(input as ItemFn);
+    if function.sig.asyncness.is_none() {
+        return syn::Error::new_spanned(&function.sig, "`#[actor_handler]` requires an `async fn`")
+            .into_compile_error()
+            .into();
+    }
+    match function.sig.inputs.len() {
+        2 => function.sig.inputs.insert(
+            0,
+            FnArg::Typed(syn::parse_quote!(_context: &impl ::actor_framework::ActorContext)),
+        ),
+        3 => {}
+        _ => {
+            return syn::Error::new_spanned(
+                &function.sig,
+                "an actor handler must take `(state, message)` or `(context, state, message)`",
+            )
+            .into_compile_error()
+            .into();
+        }
+    }
+    quote!(#function).into()
 }
 
 /// Create an actor manifest macro that can be consumed by `actor_system!`.

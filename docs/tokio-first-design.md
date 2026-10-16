@@ -86,7 +86,7 @@ Das Beispiel zeigt die implementierte API-Syntax; konkrete App-Typen und Nachric
 
 ### `actor_module!`
 
-Das Manifest ist die einzige Quelle der Wahrheit für Routen. Es deklariert pro Actor den State-Typ, Mailbox-Kapazität und freie Handler-Funktionen. Ein Handler hat die Form `async fn handler(context: &impl sensors::ActorContext, state: &mut ActorState, message: Message) -> ()`. Die erste Context-Referenz ist erforderlich; sie kann bei Handlern ohne ausgehende Kommunikation ungenutzt bleiben.
+Das Manifest ist die einzige Quelle der Wahrheit für Routen. Es deklariert pro Actor den State-Typ, Mailbox-Kapazität und freie Handler-Funktionen. Context-freie Handler werden mit `#[actor_handler]` annotiert und haben die Form `async fn handler(state: &mut ActorState, message: Message) -> ()`. Handler mit ausgehender Kommunikation verwenden weiterhin `async fn handler(context: &impl sensors::ActorContext, state: &mut ActorState, message: Message) -> ()`. Beide werden im Manifest als `Message => handler` eingetragen. Der Modul-spezifische Context-Trait erhält die statisch geprüften, im Manifest erlaubten `send`- und `publish`-Routen.
 
 Das Makro erzeugt intern pro Actor einen Nachrichten-Enum und eine bounded Mailbox. Der Enum ist Implementierungsdetail: Nutzer müssen ihn nicht schreiben oder benennen. Die Manifest-Einträge liefern die Zuordnung der öffentlichen Nachrichtentypen zu den internen Mailbox-Varianten und Handlern.
 

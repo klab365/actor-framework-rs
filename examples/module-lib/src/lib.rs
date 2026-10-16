@@ -1,4 +1,4 @@
-use actor_framework::actor_module;
+use actor_framework::{actor_handler, actor_module};
 
 pub struct Add(pub u32);
 
@@ -19,7 +19,8 @@ pub async fn add(context: &impl counter::ActorContext, state: &mut Counter, mess
 pub struct Recorder;
 pub static LAST: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
-pub async fn record(_context: &impl actor_framework::ActorContext, _state: &mut Recorder, event: Added) {
+#[actor_handler]
+pub async fn record(_state: &mut Recorder, event: Added) {
     println!("[module-lib/recorder] received Added({})", event.0);
     LAST.store(event.0, std::sync::atomic::Ordering::SeqCst);
 }

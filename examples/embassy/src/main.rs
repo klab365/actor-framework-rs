@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use actor_framework::{ActorContext, actor_module, actor_system};
+use actor_framework::{actor_handler, actor_module, actor_system};
 use embassy_executor::Spawner;
 use panic_halt as _;
 
@@ -19,7 +19,8 @@ async fn add(context: &impl app::ActorContext, counter: &mut Counter, message: A
         .expect("logger is running");
 }
 
-async fn log(_context: &impl ActorContext, _logger: &mut Logger, event: TotalChanged) {
+#[actor_handler]
+async fn log(_logger: &mut Logger, event: TotalChanged) {
     let _observed = event.0;
 }
 

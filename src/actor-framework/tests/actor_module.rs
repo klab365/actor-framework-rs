@@ -1,6 +1,6 @@
 #![cfg(feature = "tokio")]
 
-use actor_framework::{ActorContext, actor_module, actor_system};
+use actor_framework::{ActorContext, actor_handler, actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -48,7 +48,8 @@ async fn increment(context: &impl counters::ActorContext, state: &mut Counter, a
     context.send(Reset).await.unwrap();
 }
 
-async fn record(_context: &impl ActorContext, state: &mut Recorder, event: Changed) {
+#[actor_handler]
+async fn record(state: &mut Recorder, event: Changed) {
     state.values.lock().await.push(event.0);
 }
 

@@ -1,6 +1,6 @@
 #![cfg(all(feature = "wasm", target_arch = "wasm32"))]
 
-use actor_framework::{ActorSendRoute, Receiver, TrySendError, actor_module, actor_system, wasm};
+use actor_framework::{ActorSendRoute, Receiver, TrySendError, actor_handler, actor_module, actor_system, wasm};
 use std::{cell::Cell, rc::Rc};
 use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -23,7 +23,8 @@ pub async fn add(context: &impl counters::ActorContext, state: &mut Counter, com
     // Shutdown closes every destination: outgoing routes may already be closed.
     let _ = context.publish(Changed(state.0.get())).await;
 }
-pub async fn observe(_: &impl counters::ActorContext, state: &mut Observer, event: Changed) {
+#[actor_handler]
+pub async fn observe(state: &mut Observer, event: Changed) {
     state.0.send_route(event.0).await.unwrap();
 }
 
