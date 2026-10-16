@@ -27,6 +27,15 @@ struct Slow(u8);
 struct Crash(tokio::sync::oneshot::Sender<()>);
 struct BlockUntilReleased;
 struct ShutdownActor;
+struct PartialClosed;
+#[derive(Clone)]
+struct PartialEvent;
+struct ClosePartial(tokio::sync::oneshot::Sender<()>);
+struct QueueMessage;
+
+struct PartialRecorder;
+
+struct QueueState;
 
 static SLOW_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SLOW_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
@@ -62,10 +71,42 @@ async fn block_until_released(_context: &impl ActorContext, _state: &mut Shutdow
     SHUTDOWN_RELEASE.notified().await;
 }
 
+async fn record_partial(_context: &impl ActorContext, _state: &mut PartialRecorder, event: PartialEvent) {
+    PARTIAL_FIRST.lock().await.push(event);
+    PARTIAL_FIRST_DELIVERED.notify_one();
+}
+
+async fn close_partial(_context: &impl ActorContext, _state: &mut PartialClosed, message: ClosePartial) {
+    let _ = message.0.send(());
+    panic!("intentional actor exit for partial-publish test");
+}
+
+async fn discard_partial(_context: &impl ActorContext, _state: &mut PartialClosed, _event: PartialEvent) {}
+
+async fn record_partial_last(_context: &impl ActorContext, _state: &mut PartialRecorder, event: PartialEvent) {
+    PARTIAL_LAST.lock().await.push(event);
+    PARTIAL_LAST_DELIVERED.notify_one();
+}
+
+async fn queue_message(_context: &impl ActorContext, _state: &mut QueueState, _message: QueueMessage) {
+    QUEUE_STARTED.notify_one();
+    QUEUE_RELEASE.notified().await;
+    QUEUE_COMPLETED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+}
+
 static FIRST: std::sync::LazyLock<Arc<Mutex<Vec<u32>>>> = std::sync::LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 static SECOND: std::sync::LazyLock<Arc<Mutex<Vec<u32>>>> =
     std::sync::LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 static RESET_SEEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static PARTIAL_FIRST: std::sync::LazyLock<Arc<Mutex<Vec<PartialEvent>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+static PARTIAL_LAST: std::sync::LazyLock<Arc<Mutex<Vec<PartialEvent>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+static PARTIAL_FIRST_DELIVERED: tokio::sync::Notify = tokio::sync::Notify::const_new();
+static PARTIAL_LAST_DELIVERED: tokio::sync::Notify = tokio::sync::Notify::const_new();
+static QUEUE_STARTED: tokio::sync::Notify = tokio::sync::Notify::const_new();
+static QUEUE_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
+static QUEUE_COMPLETED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 actor_module! {
     pub manifest counters;
@@ -117,6 +158,26 @@ actor_module! {
             mailbox_capacity: 2;
             commands { BlockUntilReleased => block_until_released; }
             events {}
+        },
+        partial_first: PartialRecorder {
+            mailbox_capacity: 1;
+            commands {}
+            events { PartialEvent => record_partial; }
+        },
+        partial_closed: PartialClosed {
+            mailbox_capacity: 1;
+            commands { ClosePartial => close_partial; }
+            events { PartialEvent => discard_partial; }
+        },
+        partial_last: PartialRecorder {
+            mailbox_capacity: 1;
+            commands {}
+            events { PartialEvent => record_partial_last; }
+        },
+        queue: QueueState {
+            mailbox_capacity: 2;
+            commands { QueueMessage => queue_message; }
+            events {}
         }
     ];
 }
@@ -136,6 +197,10 @@ fn start_actors() -> RuntimeSystem {
         .slow_actor(SlowActor)
         .reset_actor(ResetActor)
         .shutdown_actor(ShutdownActor)
+        .partial_first(PartialRecorder)
+        .partial_closed(PartialClosed)
+        .partial_last(PartialRecorder)
+        .queue(QueueState)
         .start()
         .unwrap()
 }
@@ -241,6 +306,66 @@ async fn shutdown_waits_for_active_handler_and_rejects_new_messages() {
     SHUTDOWN_RELEASE.notify_one();
     shutdown.await.unwrap();
     assert!(actors.send(BlockUntilReleased).await.is_err());
+}
+
+#[tokio::test]
+async fn publish_stops_at_closed_subscriber_without_rolling_back_prior_delivery() {
+    PARTIAL_FIRST.lock().await.clear();
+    PARTIAL_LAST.lock().await.clear();
+    let actors = start_actors();
+
+    let (closed_tx, closed_rx) = tokio::sync::oneshot::channel();
+    actors.send(ClosePartial(closed_tx)).await.unwrap();
+    closed_rx.await.unwrap();
+    let mut mailbox_closed = false;
+    for _ in 0..20 {
+        let (closed_tx, _) = tokio::sync::oneshot::channel();
+        if actors.send(ClosePartial(closed_tx)).await.is_err() {
+            mailbox_closed = true;
+            break;
+        }
+        tokio::task::yield_now().await;
+    }
+    assert!(mailbox_closed, "closed subscriber mailbox should be unavailable");
+
+    let first_delivery = PARTIAL_FIRST_DELIVERED.notified();
+    tokio::pin!(first_delivery);
+    assert!(actors.publish(PartialEvent).await.is_err());
+    tokio::time::timeout(std::time::Duration::from_secs(1), &mut first_delivery)
+        .await
+        .expect("first subscriber should receive the event");
+    assert_eq!(PARTIAL_FIRST.lock().await.len(), 1);
+    assert!(PARTIAL_LAST.lock().await.is_empty());
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(10), PARTIAL_LAST_DELIVERED.notified())
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn shutdown_discards_queued_messages_after_active_handler_completes() {
+    QUEUE_COMPLETED.store(0, std::sync::atomic::Ordering::SeqCst);
+    let actors = start_actors();
+
+    let active_started = QUEUE_STARTED.notified();
+    tokio::pin!(active_started);
+    actors.send(QueueMessage).await.unwrap();
+    active_started.await;
+    actors.send(QueueMessage).await.unwrap();
+    actors.send(QueueMessage).await.unwrap();
+
+    let shutdown = actors.shutdown();
+    tokio::pin!(shutdown);
+    tokio::select! {
+        biased;
+        _ = &mut shutdown => panic!("shutdown returned before active handler completed"),
+        _ = tokio::task::yield_now() => {}
+    }
+    assert!(actors.send(QueueMessage).await.is_err());
+    QUEUE_RELEASE.notify_one();
+    shutdown.await.unwrap();
+    assert_eq!(QUEUE_COMPLETED.load(std::sync::atomic::Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
