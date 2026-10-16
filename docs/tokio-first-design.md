@@ -163,6 +163,15 @@ Compile-Fail-Tests in `src/actor-framework/tests/ui/` prüfen doppelte Command-R
 
 Events ohne Subscriber müssen in der `events: [...]`-Deklaration eines ausgewählten Moduls aufgeführt werden, damit der Dispatcher ihren Typ kennt und `publish` als No-op generieren kann.
 
+## Runtime-neutraler Core (Issue #4)
+
+Die gemeinsamen Routing-Verträge sind jetzt unabhängig von Tokio verfügbar;
+`Actor`, `Receiver`, `run` und eine inline gespeicherte `Mailbox<M, N>` definieren
+den allocatorfreien Integrationspfad. Siehe [Architektur](architecture.md).
+Die Tokio-Makros und ihre Shutdown-/Fan-out-Semantik bleiben unverändert und
+werden nur mit dem Feature `tokio` exportiert. Der gemeinsame `run`-Loop drainiert
+bis zum Ende; er ersetzt nicht den Tokio-Loop mit dessen explizitem Shutdown.
+
 ## Nicht in V1
 
 - Embassy- und WASM-Runtime-Adapter

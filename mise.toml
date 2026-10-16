@@ -3,7 +3,11 @@ rust = { version = "stable", components = ["clippy", "rustfmt"] }
 
 [tasks.check]
 description = "Check the runtime-neutral crate boundary"
-run = "cargo check --workspace --no-default-features"
+run = "cargo check -p actor-framework-rs --no-default-features"
+
+[tasks.test-core]
+description = "Test the core without runtime features"
+run = "cargo test -p actor-framework-rs --no-default-features"
 
 [tasks.check-tokio]
 description = "Check the Tokio implementation"

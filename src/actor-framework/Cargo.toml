@@ -19,12 +19,12 @@ workspace = true
 [features]
 default = ["tokio"]
 std = []
-tokio = ["std", "dep:tokio"]
+tokio = ["std", "dep:tokio", "dep:actor-framework-macros"]
 wasm = ["std"]
 embassy = []
 
 [dependencies]
-actor-framework-macros = { version = "0.1.0", path = "../actor-framework-macros" }
+actor-framework-macros = { version = "0.1.0", path = "../actor-framework-macros", optional = true }
 tokio = { version = "1", features = ["rt", "sync", "macros", "time"], optional = true }
 
 [dev-dependencies]

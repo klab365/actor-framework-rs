@@ -2,8 +2,13 @@
 
 //! Statically routed actors with bounded, runtime-specific mailboxes.
 //!
-//! The Tokio adapter is the first prototype. The runtime-neutral, heap-free core
-//! and Embassy/WASM adapters are not implemented yet.
+//! The always-available [`core`] module requires neither an allocator nor an executor.
+//! Tokio-specific macros and lifecycle support are enabled by the `tokio` feature.
+
+pub mod core;
+pub use crate::core::{
+    Actor, ActorContext, ActorPublishRoute, ActorSendRoute, Mailbox, Receiver, SendError, TrySendError, run,
+};
 
 #[cfg(feature = "tokio")]
 extern crate std;
@@ -12,15 +17,16 @@ extern crate std;
 mod tokio_runtime;
 
 #[cfg(feature = "tokio")]
-pub use tokio_runtime::{
-    ActorContext, ActorPublishRoute, ActorSendRoute, ActorTaskError, MissingActorState, SendError, TrySendError,
-};
+pub use tokio_runtime::{ActorTaskError, MissingActorState};
 
+#[cfg(feature = "tokio")]
 #[doc(hidden)]
 pub use actor_framework_macros::__actor_system;
+#[cfg(feature = "tokio")]
 pub use actor_framework_macros::actor_module;
 
-/// Compose explicit actor module manifests into an actor system.
+/// Compose explicit actor module manifests into a Tokio actor system.
+#[cfg(feature = "tokio")]
 #[macro_export]
 macro_rules! actor_system {
     (
@@ -38,6 +44,7 @@ macro_rules! actor_system {
 }
 
 /// Internal continuation used by [`actor_system!`].
+#[cfg(feature = "tokio")]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __actor_framework_collect_modules {
