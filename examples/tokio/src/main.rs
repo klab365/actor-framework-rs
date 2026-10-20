@@ -1,4 +1,4 @@
-use actor_framework::{actor_module, actor_system};
+use actor_framework::{actor_handler, actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -15,12 +15,18 @@ struct Logger {
     values: Arc<Mutex<Vec<u32>>>,
 }
 
-async fn add(counter: &mut Counter, message: Add) {
+#[actor_handler]
+async fn add(events: ActorAddress<ActorEvent<TotalChanged>>, counter: &mut Counter, message: Add) {
     println!("[counter] received Add({})", message.0);
     counter.total += message.0;
+    events
+        .publish(TotalChanged(counter.total))
+        .await
+        .expect("event published");
     println!("[counter] total is {}", counter.total);
 }
 
+#[actor_handler]
 async fn log(logger: &mut Logger, event: TotalChanged) {
     println!("[logger] received TotalChanged({})", event.0);
     logger.values.lock().await.push(event.0);
@@ -64,11 +70,6 @@ async fn main() {
     actors.send(Add(5)).await.expect("counter is running");
     println!("[main] sending Add(7)");
     actors.send(Add(7)).await.expect("counter is running");
-
-    // Handler-to-handler communication is deferred to issue #22. Demonstrate
-    // event routing independently through the application-owned system handle.
-    actors.publish(TotalChanged(5)).await.expect("logger is running");
-    actors.publish(TotalChanged(12)).await.expect("logger is running");
 
     for _ in 0..20 {
         if LOG.lock().await.as_slice() == [5, 12] {

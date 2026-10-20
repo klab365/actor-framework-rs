@@ -1,5 +1,13 @@
 use super::*;
 
+fn handler_adapter(handler: &Path) -> proc_macro2::TokenStream {
+    let mut adapter = handler.clone();
+    let last = adapter.segments.last_mut().expect("handler path is nonempty");
+    last.ident = format_ident!("__actor_handler_{}", last.ident);
+    last.arguments = syn::PathArguments::None;
+    quote!(#adapter)
+}
+
 pub(super) fn expand(
     visibility: syn::Visibility,
     name: Ident,
@@ -34,11 +42,11 @@ pub(super) fn expand(
         let command_count = actor.commands.len();
         for (index, route) in actor.commands.into_iter().chain(actor.events).enumerate() {
             let ty = route.message;
-            let handler = route.handler;
+            let handler = handler_adapter(&route.handler);
             let variant = format_ident!("Message{}", index);
             variants.push(quote!(#variant(#ty)));
             arms.push(quote!(#message_enum::#variant(message) => {
-                let () = #handler(&mut #state_var, message).await;
+                let () = #handler(&task_context, &mut #state_var, message).await;
             }));
             if index < command_count {
                 routes.push(quote! {
@@ -47,8 +55,8 @@ pub(super) fn expand(
                             ::actor_framework::ActorSendRoute::send_route(&self.#field, #message_enum::#variant(message)).await
                         }
                     }
-                    impl __ActorTrySendRoute<#ty> for #context {
-                        fn try_route(&self, message: #ty) -> Result<(), ::actor_framework::TrySendError<#ty>> {
+                    impl ::actor_framework::ActorTrySendRoute<#ty> for #context {
+                        fn try_send_route(&self, message: #ty) -> Result<(), ::actor_framework::TrySendError<#ty>> {
                             match self.#field.try_send(#message_enum::#variant(message)) {
                                 Ok(()) => Ok(()),
                                 Err(::actor_framework::TrySendError::Full(#message_enum::#variant(message))) => Err(::actor_framework::TrySendError::Full(message)),
@@ -110,10 +118,6 @@ pub(super) fn expand(
     let count = spawns.len();
     quote! {
         #(#enums)*
-        #[doc(hidden)]
-        pub trait __ActorTrySendRoute<M> {
-            fn try_route(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>;
-        }
         #[derive(Clone)]
         struct #context { #(#fields),* }
         #visibility struct #name {
@@ -134,8 +138,8 @@ pub(super) fn expand(
                 ::actor_framework::ActorSendRoute::send_route(&self.__context, message).await
             }
             pub fn try_send<M>(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>
-            where #context: __ActorTrySendRoute<M> {
-                __ActorTrySendRoute::try_route(&self.__context, message)
+            where #context: ::actor_framework::ActorTrySendRoute<M> {
+                ::actor_framework::ActorTrySendRoute::try_send_route(&self.__context, message)
             }
             pub async fn publish<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
             where #context: ::actor_framework::ActorPublishRoute<M> {

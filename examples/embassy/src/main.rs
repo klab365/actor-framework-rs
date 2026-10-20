@@ -11,10 +11,12 @@ struct TotalChanged(u32);
 struct Counter(u32);
 struct Logger;
 
+#[actor_framework::actor_handler]
 async fn add(counter: &mut Counter, message: Add) {
     counter.0 = counter.0.wrapping_add(message.0);
 }
 
+#[actor_framework::actor_handler]
 async fn log(_logger: &mut Logger, event: TotalChanged) {
     let _observed = event.0;
 }

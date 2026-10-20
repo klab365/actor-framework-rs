@@ -1,24 +1,18 @@
 # Embassy micro:bit v2 actor-system example
 
-A flashable BBC micro:bit v2 / nRF52833 example using the generated Embassy
-`actor_system!` backend. Button A (`P0.14`) sends `ButtonPressed` to the Counter
-actor. It publishes `PressObserved`; the LED actor toggles the matrix pixel at
-`P0.28`/`P0.21` and logs through defmt.
+A flashable BBC micro:bit v2 / nRF52833 example of typed Embassy actor
+addresses. Button A (`P0.14`) sends `ButtonPressed` to a statically allocated
+counter mailbox. Its handler declares `ActorAddress<ActorEvent<PressObserved>>`
+and publishes to the LED actor; the generated system wires that typed context.
+The LED actor toggles the matrix pixel at `P0.28`/`P0.21` and logs through
+defmt. Messages and mailboxes remain statically typed; there is no registry,
+serialization, or heap allocation.
 
-The application only starts the generated system once:
-
-```rust,ignore
-let actors = AppActors::builder()
-    .counter(Counter { count: 0 })
-    .activity_led(activity_led)
-    .start(spawner)?;
-```
-
-Mailbox capacities are Counter=4 and LED=2. The generated task pool has one
-static task slot per actor plus one private shutdown-coordinator slot. A full mailbox backpressures `send`; the button loop
-waits for acceptance, not completion. Generated systems also provide
-`shutdown().await`: it rejects new sends, drains accepted messages, and waits
-for both actor tasks. This firmware intentionally keeps the executor running.
+Mailbox capacities are Counter=4 and LED=2. A full mailbox backpressures
+`send`/`publish`; success means the message was accepted, not handled. The
+`#[actor_handler]` attribute derives typed route requirements from handler
+parameters; `actor_system!` binds them to the composed system. This firmware
+intentionally keeps the executor running.
 
 ## Flash
 

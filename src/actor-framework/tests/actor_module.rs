@@ -43,50 +43,61 @@ static SLOW_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 static SHUTDOWN_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SHUTDOWN_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
+#[actor_framework::actor_handler]
 async fn increment(state: &mut Counter, amount: u32) {
     state.value += amount;
 }
 
+#[actor_framework::actor_handler]
 async fn record(state: &mut Recorder, event: Changed) {
     state.values.lock().await.push(event.0);
 }
 
+#[actor_framework::actor_handler]
 async fn reset(_state: &mut ResetActor, _message: Reset) {
     RESET_SEEN.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
+#[actor_framework::actor_handler]
 async fn wait_slow(_state: &mut SlowActor, _message: Slow) {
     SLOW_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
     SLOW_RELEASE.notified().await;
 }
 
+#[actor_framework::actor_handler]
 async fn crash(_state: &mut CrashActor, _message: Crash) {
     let _ = _message.0.send(());
     panic!("intentional actor exit for closed-mailbox test");
 }
 
+#[actor_framework::actor_handler]
 async fn block_until_released(_state: &mut ShutdownActor, _message: BlockUntilReleased) {
     SHUTDOWN_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
     SHUTDOWN_RELEASE.notified().await;
 }
 
+#[actor_framework::actor_handler]
 async fn record_partial(_state: &mut PartialRecorder, event: PartialEvent) {
     PARTIAL_FIRST.lock().await.push(event);
     PARTIAL_FIRST_DELIVERED.notify_one();
 }
 
+#[actor_framework::actor_handler]
 async fn close_partial(_state: &mut PartialClosed, message: ClosePartial) {
     let _ = message.0.send(());
     panic!("intentional actor exit for partial-publish test");
 }
 
+#[actor_framework::actor_handler]
 async fn discard_partial(_state: &mut PartialClosed, _event: PartialEvent) {}
 
+#[actor_framework::actor_handler]
 async fn record_partial_last(_state: &mut PartialRecorder, event: PartialEvent) {
     PARTIAL_LAST.lock().await.push(event);
     PARTIAL_LAST_DELIVERED.notify_one();
 }
 
+#[actor_framework::actor_handler]
 async fn queue_message(_state: &mut QueueState, _message: QueueMessage) {
     QUEUE_STARTED.notify_one();
     QUEUE_RELEASE.notified().await;

@@ -18,6 +18,12 @@ pub trait ActorSendRoute<M> {
     async fn send_route(&self, message: M) -> Result<(), SendError>;
 }
 
+/// Statically generated route for a non-blocking command send.
+pub trait ActorTrySendRoute<M> {
+    /// Attempt delivery without waiting; return the message if full or closed.
+    fn try_send_route(&self, message: M) -> Result<(), TrySendError<M>>;
+}
+
 /// Statically generated route for a permitted event publication.
 #[allow(async_fn_in_trait)]
 pub trait ActorPublishRoute<M> {

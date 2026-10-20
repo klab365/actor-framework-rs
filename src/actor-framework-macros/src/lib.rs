@@ -116,6 +116,146 @@ impl Parse for RouteDef {
     }
 }
 
+/// Adapt a reusable async handler to typed actor route capabilities.
+///
+/// Context parameters use `ActorAddress<ActorCommand<Message>>` or
+/// `ActorAddress<ActorEvent<Event>>`. The generated helper binds the concrete
+/// system router at the composition site.
+#[proc_macro_attribute]
+pub fn actor_handler(_attribute: TokenStream, input: TokenStream) -> TokenStream {
+    let mut function = parse_macro_input!(input as syn::ItemFn);
+    if function.sig.asyncness.is_none() {
+        return syn::Error::new_spanned(&function.sig, "`actor_handler` requires an async function")
+            .into_compile_error()
+            .into();
+    }
+
+    let router = format_ident!("__ActorFrameworkRouter");
+    let mut contexts = Vec::new();
+    for (index, argument) in function.sig.inputs.iter_mut().enumerate() {
+        let syn::FnArg::Typed(argument) = argument else {
+            return syn::Error::new_spanned(argument, "actor handlers must be free functions")
+                .into_compile_error()
+                .into();
+        };
+        let syn::Type::Path(path) = argument.ty.as_ref() else {
+            continue;
+        };
+        let Some(segment) = path.path.segments.last() else {
+            continue;
+        };
+        if segment.ident != "ActorAddress" {
+            continue;
+        }
+        let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+            return syn::Error::new_spanned(
+                &argument.ty,
+                "expected `ActorAddress<ActorCommand<M>>` or `ActorAddress<ActorEvent<E>>`",
+            )
+            .into_compile_error()
+            .into();
+        };
+        let Some(syn::GenericArgument::Type(marker_ty)) = args.args.first() else {
+            return syn::Error::new_spanned(&argument.ty, "expected a command/event marker type")
+                .into_compile_error()
+                .into();
+        };
+        let syn::Type::Path(marker_path) = marker_ty else {
+            return syn::Error::new_spanned(marker_ty, "expected ActorCommand<M> or ActorEvent<E>")
+                .into_compile_error()
+                .into();
+        };
+        let Some(marker_segment) = marker_path.path.segments.last() else {
+            unreachable!()
+        };
+        let kind = marker_segment.ident.to_string();
+        if kind != "ActorCommand" && kind != "ActorEvent" {
+            return syn::Error::new_spanned(marker_ty, "expected ActorCommand<M> or ActorEvent<E>")
+                .into_compile_error()
+                .into();
+        }
+        let syn::PathArguments::AngleBracketed(marker_args) = &marker_segment.arguments else {
+            return syn::Error::new_spanned(marker_ty, "message marker must have a message type")
+                .into_compile_error()
+                .into();
+        };
+        let Some(syn::GenericArgument::Type(message)) = marker_args.args.first() else {
+            return syn::Error::new_spanned(marker_ty, "message marker must have a message type")
+                .into_compile_error()
+                .into();
+        };
+        let message = message.clone();
+        let marker_ident = &marker_segment.ident;
+        let marker = quote!(::actor_framework::actor_address::#marker_ident<#message>);
+        *argument.ty = syn::parse_quote!(::actor_framework::actor_address::ActorAddress<'_, #marker, #router>);
+        contexts.push((index, kind, message, marker));
+    }
+    if !contexts.is_empty() {
+        function.sig.generics.params.push(syn::parse_quote!(#router));
+        for (_, kind, message, _) in &contexts {
+            let predicate = if kind == "ActorCommand" {
+                quote!(#router: ::actor_framework::ActorSendRoute<#message>)
+            } else {
+                quote!(#router: ::actor_framework::ActorPublishRoute<#message>)
+            };
+            function
+                .sig
+                .generics
+                .make_where_clause()
+                .predicates
+                .push(syn::parse_quote!(#predicate));
+        }
+    }
+
+    let name = function.sig.ident.clone();
+    let helper = format_ident!("__actor_handler_{}", name);
+    let visibility = function.vis.clone();
+    let mut helper_args = Vec::new();
+    let call_args: Vec<_> = function
+        .sig
+        .inputs
+        .iter()
+        .enumerate()
+        .map(|(index, arg)| {
+            if contexts.iter().any(|(context_index, ..)| *context_index == index) {
+                quote!(::actor_framework::actor_address::ActorAddress::new(router))
+            } else if let syn::FnArg::Typed(typed) = arg {
+                let ident = format_ident!("__actor_handler_arg_{index}");
+                let ty = &typed.ty;
+                helper_args.push(quote!(#ident: #ty));
+                quote!(#ident)
+            } else {
+                unreachable!()
+            }
+        })
+        .collect();
+    let bounds = contexts.iter().map(|(_, kind, message, _)| {
+        if kind == "ActorCommand" {
+            quote!(#router: ::actor_framework::ActorSendRoute<#message>,)
+        } else {
+            quote!(#router: ::actor_framework::ActorPublishRoute<#message>,)
+        }
+    });
+    let has_contexts = !contexts.is_empty();
+    let helper_router_param = quote!(router: &#router,);
+    let helper_generics = quote!(<#router>);
+    let helper_where = has_contexts.then(|| quote!(where #(#bounds)*));
+    let output = &function.sig.output;
+    quote! {
+        #function
+        #[doc(hidden)]
+        #visibility async fn #helper #helper_generics (
+            #helper_router_param
+            #(#helper_args),*
+        ) #output
+        #helper_where
+        {
+            #name(#(#call_args),*).await
+        }
+    }
+    .into()
+}
+
 /// Internal endpoint used after declarative module composition.
 #[doc(hidden)]
 #[proc_macro]
@@ -242,6 +382,14 @@ fn module_type(ty: &Type) -> proc_macro2::TokenStream {
         }
         _ => quote!(#ty),
     }
+}
+
+fn handler_adapter(path: &Path) -> proc_macro2::TokenStream {
+    let mut adapter = path.clone();
+    let last = adapter.segments.last_mut().expect("handler path is nonempty");
+    last.ident = format_ident!("__actor_handler_{}", last.ident);
+    last.arguments = syn::PathArguments::None;
+    quote!(#adapter)
 }
 
 fn module_handler(path: &Path) -> proc_macro2::TokenStream {
@@ -417,8 +565,8 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
             .enumerate()
             .map(|(index, route)| {
                 let variant = format_ident!("Message{}", index);
-                let handler = &route.handler;
-                quote! { #msg_enum::#variant(message) => { let () = #handler(&mut #state, message).await; } }
+                let handler = handler_adapter(&route.handler);
+                quote! { #msg_enum::#variant(message) => { let () = #handler(&task_context, &mut #state, message).await; } }
             });
         quote! {
             let task_context = system.__context.clone();
@@ -461,8 +609,8 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
                 }
             });
             try_route_impls.push(quote! {
-                impl __ActorTrySendRoute<#message> for #context_type {
-                    fn try_route(&self, message: #message) -> Result<(), ::actor_framework::TrySendError<#message>> {
+                impl ::actor_framework::ActorTrySendRoute<#message> for #context_type {
+                    fn try_send_route(&self, message: #message) -> Result<(), ::actor_framework::TrySendError<#message>> {
                         if *self.__shutdown.borrow() { return Err(::actor_framework::TrySendError::Closed(message)); }
                         match self.#field.try_reserve() {
                             Ok(permit) => { permit.send(#msg_enum::#variant(message)); Ok(()) }
@@ -524,11 +672,6 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
         #(#enum_defs)*
 
         #[doc(hidden)]
-        pub trait __ActorTrySendRoute<M> {
-            fn try_route(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>;
-        }
-
-        #[doc(hidden)]
         #[doc = "Application-wide typed actor messaging context generated by `actor_system!`."]
         struct #context_type {
             #(#handle_fields),*,
@@ -571,8 +714,8 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
             }
 
             pub fn try_send<M>(&self, message: M) -> Result<(), ::actor_framework::TrySendError<M>>
-            where #context_type: __ActorTrySendRoute<M> {
-                <#context_type as __ActorTrySendRoute<M>>::try_route(&self.__context, message)
+            where #context_type: ::actor_framework::ActorTrySendRoute<M> {
+                <#context_type as ::actor_framework::ActorTrySendRoute<M>>::try_send_route(&self.__context, message)
             }
 
             pub async fn publish<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
