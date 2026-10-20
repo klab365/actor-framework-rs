@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use actor_framework::{actor_module, actor_system};
+use actor_framework::{actor_handler, actor_module, actor_system};
 use defmt::info;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
@@ -22,27 +22,28 @@ struct ActivityLed {
     row: Output<'static>,
 }
 
-impl ActivityLed {
-    fn toggle(&mut self) {
-        if self.column.is_set_low() {
-            self.column.set_high();
-            self.row.set_low();
-        } else {
-            self.row.set_high();
-            self.column.set_low();
-        }
-    }
-}
-
-async fn count_press(counter: &mut Counter, _: ButtonPressed) {
+#[actor_handler]
+async fn count_press(events: ActorAddress<ActorEvent<PressObserved>>, counter: &mut Counter, _message: ButtonPressed) {
     counter.count = counter.count.wrapping_add(1);
+    events
+        .publish(PressObserved(counter.count))
+        .await
+        .expect("event route is open");
 }
 
+#[actor_handler]
 async fn blink(led: &mut ActivityLed, event: PressObserved) {
-    led.toggle();
-    info!("micro:bit button A pressed {} times", event.0);
+    if led.column.is_set_low() {
+        led.column.set_high();
+        led.row.set_low();
+    } else {
+        led.row.set_high();
+        led.column.set_low();
+    }
+    info!("button A pressed {} times", event.0);
     Timer::after(Duration::from_millis(100)).await;
-    led.toggle();
+    led.row.set_high();
+    led.column.set_low();
 }
 
 actor_module! {
@@ -82,10 +83,10 @@ async fn main(spawner: Spawner) {
         .start(spawner)
         .expect("actor task capacity exhausted");
 
-    info!("actor-framework Embassy micro:bit v2 example started");
+    info!("typed actor-address micro:bit example started");
     loop {
         button.wait_for_low().await;
-        actors.send(ButtonPressed).await.expect("counter task stopped");
+        actors.send(ButtonPressed).await.expect("counter actor stopped");
         button.wait_for_high().await;
         Timer::after(Duration::from_millis(50)).await;
     }

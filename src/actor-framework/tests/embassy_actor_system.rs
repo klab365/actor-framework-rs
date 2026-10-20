@@ -1,4 +1,5 @@
 #![cfg(all(feature = "embassy", not(feature = "tokio")))]
+#![allow(clippy::redundant_field_names)]
 
 use actor_framework::{actor_module, actor_system};
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -6,24 +7,51 @@ use embassy_executor::{Spawner, task};
 use static_cell::StaticCell;
 
 static OBSERVED: AtomicUsize = AtomicUsize::new(0);
+static STORED: AtomicUsize = AtomicUsize::new(0);
 static DONE: AtomicBool = AtomicBool::new(false);
 static EXECUTOR: StaticCell<embassy_executor::Executor> = StaticCell::new();
 
 struct Add(usize);
+struct Store(usize);
+#[derive(Clone)]
+struct Changed(usize);
 struct Counter;
+struct Logger;
 
-async fn add(_actor: &mut Counter, message: Add) {
-    OBSERVED.fetch_add(message.0, Ordering::SeqCst);
+#[actor_framework::actor_handler]
+async fn add(
+    stored: ActorAddress<ActorCommand<Store>>,
+    events: ActorAddress<ActorEvent<Changed>>,
+    _actor: &mut Counter,
+    message: Add,
+) {
+    stored.post(Store(message.0)).await.unwrap();
+    events.publish(Changed(message.0)).await.unwrap();
+}
+
+#[actor_framework::actor_handler]
+async fn log(_actor: &mut Logger, event: Changed) {
+    OBSERVED.fetch_add(event.0, Ordering::SeqCst);
+}
+
+#[actor_framework::actor_handler]
+async fn store(_actor: &mut Logger, message: Store) {
+    STORED.fetch_add(message.0, Ordering::SeqCst);
 }
 
 actor_module! {
     manifest test_manifest;
-    events: [];
+    events: [Changed];
     actors: [
         counter: Counter {
             mailbox_capacity: 1;
             commands { Add => add; }
             events {}
+        },
+        logger: Logger {
+            mailbox_capacity: 1;
+            commands { Store => store; }
+            events { Changed => log; }
         }
     ];
 }
@@ -34,11 +62,19 @@ actor_system! {
 
 #[task]
 async fn scenario(spawner: Spawner) {
-    let actors = TestActors::builder().counter(Counter).start(spawner).unwrap();
+    let actors = TestActors::builder()
+        .counter(Counter)
+        .logger(Logger)
+        .start(spawner)
+        .unwrap();
     actors.send(Add(1)).await.unwrap();
     actors.send(Add(2)).await.unwrap();
+    while OBSERVED.load(Ordering::SeqCst) != 3 || STORED.load(Ordering::SeqCst) != 3 {
+        embassy_futures::yield_now().await;
+    }
     actors.shutdown().await;
     assert_eq!(OBSERVED.load(Ordering::SeqCst), 3);
+    assert_eq!(STORED.load(Ordering::SeqCst), 3);
     DONE.store(true, Ordering::SeqCst);
 }
 

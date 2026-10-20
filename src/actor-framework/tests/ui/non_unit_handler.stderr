@@ -1,23 +1,23 @@
 error[E0308]: mismatched types
-  --> tests/ui/non_unit_handler.rs:10:1
+  --> tests/ui/non_unit_handler.rs:11:1
    |
-10 | / actor_module! {
-11 | |     pub manifest routes;
-12 | |     events: [];
-13 | |     actors: [
+11 | / actor_module! {
+12 | |     pub manifest routes;
+13 | |     events: [];
+14 | |     actors: [
 ...  |
-19 | |     ];
-20 | | }
+20 | |     ];
+21 | | }
    | | ^
    | | |
    | |_expected `Result<(), ()>`, found `()`
    |   this expression has type `Result<(), ()>`
-21 |
-22 | / actor_system! {
-23 | |     pub struct App {
-24 | |         modules: [routes];
-25 | |     }
-26 | | }
+22 |
+23 | / actor_system! {
+24 | |     pub struct App {
+25 | |         modules: [routes];
+26 | |     }
+27 | | }
    | |_- in this macro invocation
    |
    = note:   expected enum `Result<(), ()>`

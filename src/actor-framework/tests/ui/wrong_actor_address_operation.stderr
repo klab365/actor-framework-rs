@@ -1,0 +1,15 @@
+warning: unused imports: `ActorAddress` and `ActorEvent`
+ --> tests/ui/wrong_actor_address_operation.rs:1:23
+  |
+1 | use actor_framework::{ActorAddress, ActorEvent, actor_handler, actor_module, actor_system};
+  |                       ^^^^^^^^^^^^  ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0599]: no method named `post` found for struct `ActorAddress<'_, ActorEvent<Event>, __ActorFrameworkRouter>` in the current scope
+  --> tests/ui/wrong_actor_address_operation.rs:10:12
+   |
+10 |     events.post(Event).await.unwrap();
+   |            ^^^^ method not found in `ActorAddress<'_, ActorEvent<Event>, __ActorFrameworkRouter>`
+   |
+   = note: the method was found for `ActorAddress<'_, ActorCommand<M>, Router>`

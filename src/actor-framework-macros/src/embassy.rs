@@ -4,6 +4,17 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::Result;
 
+fn actor_handler_adapter(handler: &syn::Path) -> TokenStream {
+    let mut adapter = handler.clone();
+    let last = adapter
+        .segments
+        .last_mut()
+        .expect("a Rust path contains at least one segment");
+    last.ident = format_ident!("__actor_handler_{}", last.ident);
+    last.arguments = syn::PathArguments::None;
+    quote!(#adapter)
+}
+
 pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
     if input.actors.is_empty() {
         return Err(syn::Error::new(
@@ -90,8 +101,8 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
             .enumerate()
             .map(|(i, route)| {
                 let v = format_ident!("Message{i}");
-                let handler = &route.handler;
-                quote!(#msg::#v(message) => { let () = #handler(&mut actor, message).await; })
+                let handler = actor_handler_adapter(&route.handler);
+                quote!(#msg::#v(message) => { let () = #handler(&task_context, &mut actor, message).await; })
             })
             .collect();
         task_fns.push(quote! {
@@ -126,8 +137,8 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
                         }
                     }
                 }
-                impl __ActorTrySendRoute<#message> for #context {
-                    fn try_route(&self, message: #message) -> Result<(), ::actor_framework::TrySendError<#message>> {
+                impl ::actor_framework::ActorTrySendRoute<#message> for #context {
+                    fn try_send_route(&self, message: #message) -> Result<(), ::actor_framework::TrySendError<#message>> {
                         if self.__lifecycle.is_closed() { return Err(::actor_framework::TrySendError::Closed(message)); }
                         match self.#field.try_send(#msg::#variant(message)) { Ok(()) => Ok(()), Err(::actor_framework::__embassy_sync::channel::TrySendError::Full(#msg::#variant(m))) => Err(::actor_framework::TrySendError::Full(m)), _ => unreachable!() }
                     }
@@ -193,14 +204,13 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
     Ok(quote! {
         #(#enums)*
         #(#task_fns)*
-        #[doc(hidden)] pub trait __ActorTrySendRoute<M> { fn try_route(&self, message:M)->Result<(),::actor_framework::TrySendError<M>>; }
         #[derive(Clone)] struct #context { #(#context_fields),*, __lifecycle: &'static ::actor_framework::embassy::Lifecycle }
         #(#command_routes)* #(#publish)*
         #visibility struct #name { __context: #context }
         #visibility struct #builder { #(#builder_fields),* }
         impl #name { pub fn builder()->#builder { #builder { #(#empty),* } }
             pub async fn send<M>(&self,message:M)->Result<(),::actor_framework::SendError> where #context: ::actor_framework::ActorSendRoute<M> { ::actor_framework::ActorSendRoute::send_route(&self.__context,message).await }
-            pub fn try_send<M>(&self,message:M)->Result<(),::actor_framework::TrySendError<M>> where #context: __ActorTrySendRoute<M> { __ActorTrySendRoute::try_route(&self.__context,message) }
+            pub fn try_send<M>(&self,message:M)->Result<(),::actor_framework::TrySendError<M>> where #context: ::actor_framework::ActorTrySendRoute<M> { ::actor_framework::ActorTrySendRoute::try_send_route(&self.__context,message) }
             pub async fn publish<M>(&self,message:M)->Result<(),::actor_framework::SendError> where #context: ::actor_framework::ActorPublishRoute<M> { ::actor_framework::ActorPublishRoute::publish_route(&self.__context,message).await }
             /// Reject new sends, drain accepted messages, then wait for all actor tasks.
             pub async fn shutdown(&self) {

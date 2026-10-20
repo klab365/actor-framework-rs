@@ -3,7 +3,9 @@ use actor_framework::{actor_module, actor_system};
 struct Command;
 struct State;
 
+#[actor_framework::actor_handler]
 async fn first(_: &App, _: &mut State, _: Command) {}
+#[actor_framework::actor_handler]
 async fn second(_: &App, _: &mut State, _: Command) {}
 
 actor_module! {

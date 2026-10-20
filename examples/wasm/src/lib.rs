@@ -19,14 +19,17 @@ pub struct PongActor {
     completed: actor_framework::wasm::Sender<()>,
 }
 
-pub async fn receive_ping(state: &mut PingActor, Ping(round): Ping) {
+#[actor_framework::actor_handler]
+pub async fn receive_ping(pong: ActorAddress<ActorCommand<Pong>>, state: &mut PingActor, Ping(round): Ping) {
     pause_between_rounds().await;
     state.0.set(state.0.get() + 1);
     log(&format!("Ping received round {round}"));
     log(&format!("Ping sending Pong round {round}"));
+    pong.post(Pong(round)).await.unwrap();
 }
 
-pub async fn receive_pong(state: &mut PongActor, Pong(round): Pong) {
+#[actor_framework::actor_handler]
+pub async fn receive_pong(ping: ActorAddress<ActorCommand<Ping>>, state: &mut PongActor, Pong(round): Pong) {
     pause_between_rounds().await;
     state.received.set(state.received.get() + 1);
     log(&format!("Pong received round {round}"));
@@ -38,6 +41,7 @@ pub async fn receive_pong(state: &mut PongActor, Pong(round): Pong) {
     } else {
         let next_round = round + 1;
         log(&format!("Pong sending Ping round {next_round}"));
+        ping.post(Ping(next_round)).await.unwrap();
     }
 }
 

@@ -18,10 +18,12 @@ fn capacity() -> usize {
     CAPACITY.with(Cell::get)
 }
 
+#[actor_framework::actor_handler]
 pub async fn add(state: &mut Counter, command: Add) {
     state.0.set(state.0.get() + command.0);
     // Shutdown closes every destination: outgoing routes may already be closed.
 }
+#[actor_framework::actor_handler]
 pub async fn observe(state: &mut Observer, event: Changed) {
     state.0.send_route(event.0).await.unwrap();
 }

@@ -4,6 +4,7 @@ struct Known;
 struct Unknown;
 struct State;
 
+#[actor_framework::actor_handler]
 async fn handle(_: &mut State, _: Known) {}
 
 actor_module! {

@@ -23,12 +23,20 @@ and a context and returns a concrete async future. `run` consumes messages from
 a `Receiver` serially and awaits each handler to completion. Both support local,
 borrowed, non-`Send` state and contexts. No marker derives are needed.
 
-`ActorSendRoute`, `ActorPublishRoute`, `SendError`, and `TrySendError` are
-extracted from the original Tokio adapter without changing
-root paths or signatures. Generated Tokio handlers continue to use free async
-functions and generated message enums rather than being forced through a new
-`Actor` wrapper. These are two statically dispatched entry points, not a dynamic
-actor abstraction. Manifests still define command uniqueness and event fan-out.
+Typed [`ActorAddress<Capability>` contexts](typed-actor-addresses.md) provide
+command/event capabilities over bounded mailboxes. `#[actor_handler]` creates a
+reusable generic adapter; each runtime binds its private router at composition
+time without a dynamic registry.
+
+`ActorSendRoute`, `ActorPublishRoute`, `SendError`, and `TrySendError` are runtime-neutral route contracts. User handlers remain
+free async functions; `#[actor_handler]` generates the generic adapter that
+Tokio, WASM, and Embassy bind to their generated routers. This is static
+dispatch, not a dynamic actor abstraction. Manifests still define command
+uniqueness and event fan-out.
+
+The [Micro:bit Embassy example](../examples/embassy-microbit-v2/README.md) and
+cross-crate Tokio module example exercise generated handler-context wiring.
+WASM uses the same static route contract with its local bounded channels.
 
 ## Storage and backpressure
 
