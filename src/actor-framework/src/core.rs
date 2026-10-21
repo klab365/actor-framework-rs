@@ -8,6 +8,45 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SendError;
 
+/// Command message with a statically declared handler response.
+///
+/// Implement this with `#[derive(ActorCommand)]` and
+/// `#[actor_command(response = Type)]`.
+pub trait Command {
+    /// Value returned by the command handler.
+    type Response;
+}
+
+/// Transport failure for a typed request, distinct from a handler's response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequestError {
+    /// Destination stopped before mailbox acceptance.
+    Closed,
+    /// An accepted request lost its reply sender.
+    ResponseDropped,
+}
+
+/// Statically generated route for a typed command request.
+#[allow(async_fn_in_trait)]
+pub trait ActorRequestRoute<M: Command> {
+    /// Wait for acceptance and handling; handler errors remain in `M::Response`.
+    async fn request_route(&self, message: M) -> Result<M::Response, RequestError>;
+}
+
+/// Observation policy for responses without a waiting caller.
+pub trait ObserveCommandResponse {
+    /// Discard success; fail-stop on an unobserved handler error.
+    fn observe(self);
+}
+impl ObserveCommandResponse for () {
+    fn observe(self) {}
+}
+impl<T, E> ObserveCommandResponse for Result<T, E> {
+    fn observe(self) {
+        assert!(self.is_ok(), "unobserved actor handler error");
+    }
+}
+
 /// Statically generated route for a permitted command send.
 #[allow(async_fn_in_trait)]
 pub trait ActorSendRoute<M> {

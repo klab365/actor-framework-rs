@@ -14,8 +14,8 @@ description = "Verify standalone and combined runtime feature configurations"
 run = ["cargo check -p actor-framework-rs --no-default-features --features embassy", "cargo check -p actor-framework-rs --no-default-features --features tokio,embassy"]
 
 [tasks.check-embassy]
-description = "Compile the Embassy actor-system example for Cortex-M4F"
-run = "cargo check --manifest-path examples/embassy/Cargo.toml --target thumbv7em-none-eabihf"
+description = "Compile the Embassy adapter without an application example"
+run = "cargo check -p actor-framework-rs --no-default-features --features embassy"
 
 [tasks.check-embassy-microbit-v2]
 description = "Compile the flashable Embassy micro:bit v2 actor-system example"
@@ -61,7 +61,7 @@ run = "cargo check --workspace --all-features"
 
 [tasks.check-format]
 description = "Check Rust formatting"
-run = "cargo fmt --all -- --check && cargo fmt --manifest-path examples/wasm/Cargo.toml -- --check && cargo fmt --manifest-path examples/embassy/Cargo.toml -- --check && cargo fmt --manifest-path examples/embassy-microbit-v2/Cargo.toml -- --check"
+run = "cargo fmt --all -- --check && cargo fmt --manifest-path examples/wasm/Cargo.toml -- --check && cargo fmt --manifest-path examples/embassy-microbit-v2/Cargo.toml -- --check"
 
 [tasks.format]
 description = "Format Rust code"

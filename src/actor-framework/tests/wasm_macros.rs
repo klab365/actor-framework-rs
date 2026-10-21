@@ -4,8 +4,12 @@ use actor_framework::{ActorSendRoute, Receiver, TrySendError, actor_module, acto
 use std::{cell::Cell, rc::Rc};
 use wasm_bindgen_test::wasm_bindgen_test;
 
-#[derive(Debug)]
+#[derive(Debug, actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 pub struct Add(pub u32);
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = Result<u32, &'static str>)]
+pub struct ReadTotal;
 #[derive(Clone)]
 pub struct Changed(pub u32);
 #[derive(Clone)]
@@ -24,6 +28,10 @@ pub async fn add(state: &mut Counter, command: Add) {
     // Shutdown closes every destination: outgoing routes may already be closed.
 }
 #[actor_framework::actor_handler]
+pub async fn read_total(state: &mut Counter, _: ReadTotal) -> Result<u32, &'static str> {
+    Ok(state.0.get())
+}
+#[actor_framework::actor_handler]
 pub async fn observe(state: &mut Observer, event: Changed) {
     state.0.send_route(event.0).await.unwrap();
 }
@@ -34,7 +42,7 @@ actor_module! {
     actors: [
         counter: Counter {
             mailbox_capacity: capacity();
-            commands { Add => add; }
+            commands { Add => add;, ReadTotal => read_total; }
             events {}
         },
         first: Observer {
@@ -79,6 +87,7 @@ async fn manifests_routes_builder_backpressure_and_shutdown() {
     app.try_send(Add(2)).unwrap();
     assert!(matches!(app.try_send(Add(99)), Err(TrySendError::Full(Add(99)))));
     app.send(Add(3)).await.unwrap();
+    assert_eq!(app.request(ReadTotal).await, Ok(Ok(5)));
     for receiver in [&mut first_rx, &mut second_rx] {
         assert_eq!(receiver.receive().await, Some(2));
         assert_eq!(receiver.receive().await, Some(5));

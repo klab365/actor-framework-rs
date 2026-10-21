@@ -2,6 +2,8 @@ use actor_framework::{actor_handler, actor_module, actor_system};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct Add(u32);
 
 #[derive(Clone)]

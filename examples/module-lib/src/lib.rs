@@ -1,5 +1,7 @@
 use actor_framework::actor_module;
 
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 pub struct Add(pub u32);
 
 #[derive(Clone)]

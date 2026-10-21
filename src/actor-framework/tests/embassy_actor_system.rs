@@ -11,14 +11,18 @@ static STORED: AtomicUsize = AtomicUsize::new(0);
 static DONE: AtomicBool = AtomicBool::new(false);
 static EXECUTOR: StaticCell<embassy_executor::Executor> = StaticCell::new();
 
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct Add(usize);
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct Store(usize);
 #[derive(Clone)]
 struct Changed(usize);
 struct Counter;
 struct Logger;
 
-#[actor_framework::actor_handler]
+#[actor_framework::actor_handler(request_capacity = 2)]
 async fn add(
     stored: ActorAddress<ActorCommand<Store>>,
     events: ActorAddress<ActorEvent<Changed>>,
@@ -34,7 +38,7 @@ async fn log(_actor: &mut Logger, event: Changed) {
     OBSERVED.fetch_add(event.0, Ordering::SeqCst);
 }
 
-#[actor_framework::actor_handler]
+#[actor_framework::actor_handler(request_capacity = 2)]
 async fn store(_actor: &mut Logger, message: Store) {
     STORED.fetch_add(message.0, Ordering::SeqCst);
 }
@@ -67,7 +71,7 @@ async fn scenario(spawner: Spawner) {
         .logger(Logger)
         .start(spawner)
         .unwrap();
-    actors.send(Add(1)).await.unwrap();
+    assert_eq!(actors.request(Add(1)).await, Ok(()));
     actors.send(Add(2)).await.unwrap();
     while OBSERVED.load(Ordering::SeqCst) != 3 || STORED.load(Ordering::SeqCst) != 3 {
         embassy_futures::yield_now().await;

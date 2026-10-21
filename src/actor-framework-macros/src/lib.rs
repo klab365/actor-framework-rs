@@ -116,13 +116,70 @@ impl Parse for RouteDef {
     }
 }
 
+struct ActorHandlerOptions {
+    capacity: Expr,
+}
+impl Parse for ActorHandlerOptions {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        expect_ident(input, "request_capacity")?;
+        input.parse::<Token![=]>()?;
+        let capacity = input.parse()?;
+        if !input.is_empty() {
+            return Err(input.error("unexpected tokens after request_capacity"));
+        }
+        Ok(Self { capacity })
+    }
+}
+
+/// Derive the typed response contract for a command message.
+#[proc_macro_derive(ActorCommand, attributes(actor_command))]
+pub fn derive_actor_command(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    let mut response = None;
+    for attribute in &input.attrs {
+        if attribute.path().is_ident("actor_command")
+            && let Err(error) = attribute.parse_nested_meta(|meta| {
+                if meta.path.is_ident("response") {
+                    response = Some(meta.value()?.parse::<Type>()?);
+                    Ok(())
+                } else {
+                    Err(meta.error("expected `response = Type`"))
+                }
+            })
+        {
+            return error.into_compile_error().into();
+        }
+    }
+    let Some(response) = response else {
+        return syn::Error::new_spanned(&input.ident, "missing `#[actor_command(response = Type)]`")
+            .into_compile_error()
+            .into();
+    };
+    let name = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    quote! {
+        impl #impl_generics ::actor_framework::Command for #name #ty_generics #where_clause {
+            type Response = #response;
+        }
+    }
+    .into()
+}
+
 /// Adapt a reusable async handler to typed actor route capabilities.
 ///
 /// Context parameters use `ActorAddress<ActorCommand<Message>>` or
 /// `ActorAddress<ActorEvent<Event>>`. The generated helper binds the concrete
 /// system router at the composition site.
 #[proc_macro_attribute]
-pub fn actor_handler(_attribute: TokenStream, input: TokenStream) -> TokenStream {
+pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream {
+    let request_capacity = if attribute.is_empty() {
+        syn::parse_quote!(1)
+    } else {
+        match syn::parse::<ActorHandlerOptions>(attribute) {
+            Ok(options) => options.capacity,
+            Err(error) => return error.into_compile_error().into(),
+        }
+    };
     let mut function = parse_macro_input!(input as syn::ItemFn);
     if function.sig.asyncness.is_none() {
         return syn::Error::new_spanned(&function.sig, "`actor_handler` requires an async function")
@@ -209,6 +266,11 @@ pub fn actor_handler(_attribute: TokenStream, input: TokenStream) -> TokenStream
 
     let name = function.sig.ident.clone();
     let helper = format_ident!("__actor_handler_{}", name);
+    let capacity_const = format_ident!("__actor_handler_request_capacity_{}", name);
+    let capacity_item = quote!(
+        const _: () = assert!(#request_capacity > 0, "request_capacity must be greater than zero");
+        #[doc(hidden)] #[allow(non_upper_case_globals)] const #capacity_const: usize = #request_capacity;
+    );
     let visibility = function.vis.clone();
     let mut helper_args = Vec::new();
     let call_args: Vec<_> = function
@@ -243,6 +305,7 @@ pub fn actor_handler(_attribute: TokenStream, input: TokenStream) -> TokenStream
     let output = &function.sig.output;
     quote! {
         #function
+        #capacity_item
         #[doc(hidden)]
         #visibility async fn #helper #helper_generics (
             #helper_router_param
@@ -407,12 +470,12 @@ fn quote_actor(actor: &ActorDef) -> proc_macro2::TokenStream {
     let commands = actor.commands.iter().map(|route| {
         let message = module_type(&route.message);
         let handler = module_handler(&route.handler);
-        quote! { #message => #handler; }
+        quote! { #message => #handler;, }
     });
     let events = actor.events.iter().map(|route| {
         let message = module_type(&route.message);
         let handler = module_handler(&route.handler);
-        quote! { #message => #handler; }
+        quote! { #message => #handler;, }
     });
     quote! {
         #field: #state {
@@ -459,16 +522,14 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
 
     let enum_defs = actors.iter().map(|actor| {
         let msg_enum = format_ident!("__{}MailboxMessage", actor.field);
-        let variants = actor
-            .commands
-            .iter()
-            .chain(actor.events.iter())
-            .enumerate()
-            .map(|(index, route)| {
-                let variant = format_ident!("Message{}", index);
-                let ty = &route.message;
-                quote! { #variant(#ty) }
-            });
+        let command_count = actor.commands.len();
+        let variants = actor.commands.iter().chain(actor.events.iter()).enumerate().map(|(index, route)| {
+            let variant = format_ident!("Message{}", index);
+            let ty = &route.message;
+            if index < command_count {
+                quote! { #variant(#ty, Option<::tokio::sync::oneshot::Sender<<#ty as ::actor_framework::Command>::Response>>) }
+            } else { quote! { #variant(#ty) } }
+        });
         quote! { #[allow(non_camel_case_types)] enum #msg_enum { #(#variants),* } }
     });
     let context_type = format_ident!("__{}Context", name);
@@ -558,16 +619,21 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
         let state = format_ident!("__{}_state", field);
         let done_tx = format_ident!("__{}_done_tx", field);
         let msg_enum = format_ident!("__{}MailboxMessage", field);
-        let arms = actor
-            .commands
-            .iter()
-            .chain(actor.events.iter())
-            .enumerate()
-            .map(|(index, route)| {
-                let variant = format_ident!("Message{}", index);
-                let handler = handler_adapter(&route.handler);
+        let command_count = actor.commands.len();
+        let arms = actor.commands.iter().chain(actor.events.iter()).enumerate().map(|(index, route)| {
+            let variant = format_ident!("Message{}", index);
+            let ty = &route.message;
+            let handler = handler_adapter(&route.handler);
+            if index < command_count {
+                quote! { #msg_enum::#variant(message, reply) => {
+                    let response: <#ty as ::actor_framework::Command>::Response = #handler(&task_context, &mut #state, message).await;
+                    if let Some(reply) = reply { let _ = reply.send(response); }
+                    else { ::actor_framework::ObserveCommandResponse::observe(response); }
+                } }
+            } else {
                 quote! { #msg_enum::#variant(message) => { let () = #handler(&task_context, &mut #state, message).await; } }
-            });
+            }
+        });
         quote! {
             let task_context = system.__context.clone();
             let mut shutdown = task_context.__shutdown.clone();
@@ -596,6 +662,19 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
             let message = &route.message;
             let variant = format_ident!("Message{}", index);
             route_impls.push(quote! {
+                impl ::actor_framework::ActorRequestRoute<#message> for #context_type {
+                    async fn request_route(&self, message: #message) -> Result<<#message as ::actor_framework::Command>::Response, ::actor_framework::RequestError> {
+                        if *self.__shutdown.borrow() { return Err(::actor_framework::RequestError::Closed); }
+                        let (reply, receive) = ::tokio::sync::oneshot::channel();
+                        let mut shutdown = self.__shutdown.clone();
+                        ::tokio::select! {
+                            biased;
+                            _ = shutdown.changed() => return Err(::actor_framework::RequestError::Closed),
+                            result = self.#field.send(#msg_enum::#variant(message, Some(reply))) => result.map_err(|_| ::actor_framework::RequestError::Closed)?,
+                        }
+                        receive.await.map_err(|_| ::actor_framework::RequestError::ResponseDropped)
+                    }
+                }
                 impl ::actor_framework::ActorSendRoute<#message> for #context_type {
                     async fn send_route(&self, message: #message) -> Result<(), ::actor_framework::SendError> {
                         if *self.__shutdown.borrow() { return Err(::actor_framework::SendError); }
@@ -603,7 +682,7 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
                         ::tokio::select! {
                             biased;
                             _ = shutdown.changed() => Err(::actor_framework::SendError),
-                            result = self.#field.send(#msg_enum::#variant(message)) => result.map_err(|_| ::actor_framework::SendError),
+                            result = self.#field.send(#msg_enum::#variant(message, None)) => result.map_err(|_| ::actor_framework::SendError),
                         }
                     }
                 }
@@ -613,7 +692,7 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
                     fn try_send_route(&self, message: #message) -> Result<(), ::actor_framework::TrySendError<#message>> {
                         if *self.__shutdown.borrow() { return Err(::actor_framework::TrySendError::Closed(message)); }
                         match self.#field.try_reserve() {
-                            Ok(permit) => { permit.send(#msg_enum::#variant(message)); Ok(()) }
+                            Ok(permit) => { permit.send(#msg_enum::#variant(message, None)); Ok(()) }
                             Err(::tokio::sync::mpsc::error::TrySendError::Full(())) => Err(::actor_framework::TrySendError::Full(message)),
                             Err(::tokio::sync::mpsc::error::TrySendError::Closed(())) => Err(::actor_framework::TrySendError::Closed(message)),
                         }
@@ -706,6 +785,11 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
         impl #name {
             pub fn builder() -> #builder_name {
                 #builder_name { #(#builder_empty),* }
+            }
+
+            pub async fn request<M: ::actor_framework::Command>(&self, message: M) -> Result<M::Response, ::actor_framework::RequestError>
+            where #context_type: ::actor_framework::ActorRequestRoute<M> {
+                <#context_type as ::actor_framework::ActorRequestRoute<M>>::request_route(&self.__context, message).await
             }
 
             pub async fn send<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
