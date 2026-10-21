@@ -4,6 +4,13 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::Result;
 
+fn handler_capacity(handler: &syn::Path) -> TokenStream {
+    let mut capacity = handler.clone();
+    let last = capacity.segments.last_mut().expect("handler path is nonempty");
+    last.ident = format_ident!("__actor_handler_request_capacity_{}", last.ident);
+    quote!(#capacity)
+}
+
 fn actor_handler_adapter(handler: &syn::Path) -> TokenStream {
     let mut adapter = handler.clone();
     let last = adapter
@@ -56,6 +63,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
     let mut token_preparation = Vec::new();
     let mut token_spawns = Vec::new();
     let mut command_routes = Vec::new();
+    let mut reply_pools = Vec::new();
     let mut shutdown_sends = Vec::new();
     let mut event_groups: Vec<(syn::Type, Vec<TokenStream>)> =
         input.events.into_iter().map(|t| (t, Vec::new())).collect();
@@ -72,15 +80,16 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         let state_var = format_ident!("__{}{}_state", name, field);
         let sender_ty = quote!(::actor_framework::__embassy_sync::channel::Sender<'static, ::actor_framework::__embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex, #msg, #capacity>);
         let routes: Vec<_> = actor.commands.iter().chain(actor.events.iter()).collect();
-        let variants: Vec<_> = routes
-            .iter()
-            .enumerate()
-            .map(|(i, r)| {
-                let v = format_ident!("Message{i}");
-                let ty = &r.message;
-                quote!(#v(#ty))
-            })
-            .collect();
+        let command_count = actor.commands.len();
+        let variants: Vec<_> = routes.iter().enumerate().map(|(i, r)| {
+            let v = format_ident!("Message{i}");
+            let ty = &r.message;
+            if i < command_count {
+                let handler = &r.handler;
+                let capacity = handler_capacity(handler);
+                quote!(#v(#ty, Option<::actor_framework::embassy::ReplySender<<#ty as ::actor_framework::Command>::Response, { #capacity }>>))
+            } else { quote!(#v(#ty)) }
+        }).collect();
         enums.push(quote!(#[allow(non_camel_case_types)] enum #msg { #(#variants,)* Shutdown }));
         context_fields.push(quote!(#field: #sender_ty));
         builder_fields.push(quote!(#field: Option<#state>));
@@ -96,15 +105,18 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
             let #field = #channel.sender();
             let #rx = #channel.receiver();
         });
-        let dispatch: Vec<_> = routes
-            .iter()
-            .enumerate()
-            .map(|(i, route)| {
-                let v = format_ident!("Message{i}");
-                let handler = actor_handler_adapter(&route.handler);
-                quote!(#msg::#v(message) => { let () = #handler(&task_context, &mut actor, message).await; })
-            })
-            .collect();
+        let dispatch: Vec<_> = routes.iter().enumerate().map(|(i, route)| {
+            let v = format_ident!("Message{i}");
+            let handler = actor_handler_adapter(&route.handler);
+            let ty = &route.message;
+            if i < command_count {
+                quote!(#msg::#v(message, reply) => {
+                    let response: <#ty as ::actor_framework::Command>::Response = #handler(&task_context, &mut actor, message).await;
+                    if let Some(reply) = reply { reply.send(response); }
+                    else { ::actor_framework::ObserveCommandResponse::observe(response); }
+                })
+            } else { quote!(#msg::#v(message) => { let () = #handler(&task_context, &mut actor, message).await; }) }
+        }).collect();
         task_fns.push(quote! {
             #[allow(non_snake_case)]
             #[embassy_executor::task(pool_size = 1)]
@@ -124,13 +136,31 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         for (i, route) in actor.commands.iter().enumerate() {
             let message = &route.message;
             let variant = format_ident!("Message{i}");
+            let handler = &route.handler;
+            let capacity = handler_capacity(handler);
+            let pool = format_ident!("__{}{}_reply_pool_{}", name, field, i);
+            reply_pools.push(quote!(#[allow(non_upper_case_globals)] static #pool: ::actor_framework::embassy::ReplyPool<<#message as ::actor_framework::Command>::Response, { #capacity }> = ::actor_framework::embassy::ReplyPool::new();));
             command_routes.push(quote! {
+                impl ::actor_framework::ActorRequestRoute<#message> for #context {
+                    async fn request_route(&self, message: #message) -> Result<<#message as ::actor_framework::Command>::Response, ::actor_framework::RequestError> {
+                        let (waiter, reply) = #pool.acquire().await;
+                        if self.__lifecycle.is_closed() { drop(reply); return Err(::actor_framework::RequestError::Closed); }
+                        match ::actor_framework::__embassy_futures::select::select(
+                            self.__lifecycle.wait_closed(),
+                            self.#field.send(#msg::#variant(message, Some(reply))),
+                        ).await {
+                            ::actor_framework::__embassy_futures::select::Either::First(()) => return Err(::actor_framework::RequestError::Closed),
+                            ::actor_framework::__embassy_futures::select::Either::Second(()) => {},
+                        }
+                        waiter.receive().await
+                    }
+                }
                 impl ::actor_framework::ActorSendRoute<#message> for #context {
                     async fn send_route(&self, message: #message) -> Result<(), ::actor_framework::SendError> {
                         if self.__lifecycle.is_closed() { return Err(::actor_framework::SendError); }
                         match ::actor_framework::__embassy_futures::select::select(
                             self.__lifecycle.wait_closed(),
-                            self.#field.send(#msg::#variant(message)),
+                            self.#field.send(#msg::#variant(message, None)),
                         ).await {
                             ::actor_framework::__embassy_futures::select::Either::First(()) => Err(::actor_framework::SendError),
                             ::actor_framework::__embassy_futures::select::Either::Second(()) => Ok(()),
@@ -140,7 +170,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
                 impl ::actor_framework::ActorTrySendRoute<#message> for #context {
                     fn try_send_route(&self, message: #message) -> Result<(), ::actor_framework::TrySendError<#message>> {
                         if self.__lifecycle.is_closed() { return Err(::actor_framework::TrySendError::Closed(message)); }
-                        match self.#field.try_send(#msg::#variant(message)) { Ok(()) => Ok(()), Err(::actor_framework::__embassy_sync::channel::TrySendError::Full(#msg::#variant(m))) => Err(::actor_framework::TrySendError::Full(m)), _ => unreachable!() }
+                        match self.#field.try_send(#msg::#variant(message, None)) { Ok(()) => Ok(()), Err(::actor_framework::__embassy_sync::channel::TrySendError::Full(#msg::#variant(m, _))) => Err(::actor_framework::TrySendError::Full(m)), _ => unreachable!() }
                     }
                 }
             });
@@ -202,6 +232,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
     });
     let handle_sends = quote! {};
     Ok(quote! {
+        #(#reply_pools)*
         #(#enums)*
         #(#task_fns)*
         #[derive(Clone)] struct #context { #(#context_fields),*, __lifecycle: &'static ::actor_framework::embassy::Lifecycle }
@@ -209,6 +240,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         #visibility struct #name { __context: #context }
         #visibility struct #builder { #(#builder_fields),* }
         impl #name { pub fn builder()->#builder { #builder { #(#empty),* } }
+            pub async fn request<M: ::actor_framework::Command>(&self,message:M)->Result<M::Response,::actor_framework::RequestError> where #context: ::actor_framework::ActorRequestRoute<M> { ::actor_framework::ActorRequestRoute::request_route(&self.__context,message).await }
             pub async fn send<M>(&self,message:M)->Result<(),::actor_framework::SendError> where #context: ::actor_framework::ActorSendRoute<M> { ::actor_framework::ActorSendRoute::send_route(&self.__context,message).await }
             pub fn try_send<M>(&self,message:M)->Result<(),::actor_framework::TrySendError<M>> where #context: ::actor_framework::ActorTrySendRoute<M> { ::actor_framework::ActorTrySendRoute::try_send_route(&self.__context,message) }
             pub async fn publish<M>(&self,message:M)->Result<(),::actor_framework::SendError> where #context: ::actor_framework::ActorPublishRoute<M> { ::actor_framework::ActorPublishRoute::publish_route(&self.__context,message).await }

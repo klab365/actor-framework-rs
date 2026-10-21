@@ -22,6 +22,165 @@ use embassy_sync::{
     waitqueue::{MultiWakerRegistration, WakerRegistration},
 };
 
+/// A statically allocated pool for correlating concurrent request replies.
+///
+/// A slot stays reserved until the actor replies or drops the request envelope.
+/// Dropping the requester marks its slot abandoned; a late actor reply then
+/// frees the slot without delivering into a later request.
+pub struct ReplyPool<T, const N: usize> {
+    slots: [ReplySlot<T>; N],
+    available: Signal<CriticalSectionRawMutex, ()>,
+}
+
+struct ReplySlot<T> {
+    state: AtomicUsize,
+    reply: Signal<CriticalSectionRawMutex, PoolReply<T>>,
+}
+enum PoolReply<T> {
+    Value(T),
+    Dropped,
+}
+
+impl<T: 'static, const N: usize> ReplyPool<T, N> {
+    /// Create a const-initializable reply pool. `N` must be nonzero.
+    pub const fn new() -> Self {
+        Self {
+            slots: [const {
+                ReplySlot {
+                    state: AtomicUsize::new(0),
+                    reply: Signal::new(),
+                }
+            }; N],
+            available: Signal::new(),
+        }
+    }
+
+    /// Reserve a unique request slot, waiting when all slots are occupied.
+    pub async fn acquire(&'static self) -> (ReplyWaiter<T, N>, ReplySender<T, N>) {
+        loop {
+            for (index, slot) in self.slots.iter().enumerate() {
+                if slot
+                    .state
+                    .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire)
+                    .is_ok()
+                {
+                    slot.reply.reset();
+                    return (
+                        ReplyWaiter {
+                            pool: self,
+                            index,
+                            active: true,
+                        },
+                        ReplySender {
+                            pool: self,
+                            index,
+                            active: true,
+                        },
+                    );
+                }
+            }
+            self.available.wait().await;
+        }
+    }
+}
+impl<T: 'static, const N: usize> Default for ReplyPool<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Request side of a reserved Embassy reply slot.
+pub struct ReplyWaiter<T: 'static, const N: usize> {
+    pool: &'static ReplyPool<T, N>,
+    index: usize,
+    active: bool,
+}
+impl<T: 'static, const N: usize> ReplyWaiter<T, N> {
+    /// Wait for the matching actor reply.
+    pub async fn receive(mut self) -> Result<T, crate::RequestError> {
+        let reply = self.pool.slots[self.index].reply.wait().await;
+        self.active = false;
+        self.pool.slots[self.index].state.store(0, Ordering::Release);
+        self.pool.available.signal(());
+        match reply {
+            PoolReply::Value(value) => Ok(value),
+            PoolReply::Dropped => Err(crate::RequestError::ResponseDropped),
+        }
+    }
+}
+impl<T: 'static, const N: usize> Drop for ReplyWaiter<T, N> {
+    fn drop(&mut self) {
+        if self.active {
+            let state = &self.pool.slots[self.index].state;
+            if state
+                .compare_exchange(1, 2, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+                && state
+                    .compare_exchange(4, 2, Ordering::AcqRel, Ordering::Acquire)
+                    .is_err()
+                && state
+                    .compare_exchange(3, 0, Ordering::AcqRel, Ordering::Acquire)
+                    .is_ok()
+            {
+                self.pool.available.signal(());
+            }
+        }
+    }
+}
+
+/// Actor side of a reserved Embassy reply slot. Dropping it wakes the caller.
+pub struct ReplySender<T: 'static, const N: usize> {
+    pool: &'static ReplyPool<T, N>,
+    index: usize,
+    active: bool,
+}
+impl<T: 'static, const N: usize> ReplySender<T, N> {
+    /// Deliver a response to this request only.
+    pub fn send(mut self, value: T) {
+        let state = &self.pool.slots[self.index].state;
+        if state
+            .compare_exchange(1, 4, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+        {
+            self.pool.slots[self.index].reply.signal(PoolReply::Value(value));
+            if state
+                .compare_exchange(4, 3, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+            {
+                state.store(0, Ordering::Release);
+                self.pool.available.signal(());
+            }
+        } else {
+            state.store(0, Ordering::Release);
+            self.pool.available.signal(());
+        }
+        self.active = false;
+    }
+}
+impl<T: 'static, const N: usize> Drop for ReplySender<T, N> {
+    fn drop(&mut self) {
+        if self.active {
+            let state = &self.pool.slots[self.index].state;
+            if state
+                .compare_exchange(1, 4, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                self.pool.slots[self.index].reply.signal(PoolReply::Dropped);
+                if state
+                    .compare_exchange(4, 3, Ordering::AcqRel, Ordering::Acquire)
+                    .is_err()
+                {
+                    state.store(0, Ordering::Release);
+                    self.pool.available.signal(());
+                }
+            } else {
+                state.store(0, Ordering::Release);
+                self.pool.available.signal(());
+            }
+        }
+    }
+}
+
 /// Failure to initialize a generated Embassy actor system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StartError {
@@ -262,6 +421,41 @@ impl<R: RawMutex, M, const N: usize> crate::Receiver for Receiver<'_, R, M, N> {
 impl<R: RawMutex, M, const N: usize> Drop for Receiver<'_, R, M, N> {
     fn drop(&mut self) {
         self.mailbox.close();
+    }
+}
+
+#[cfg(test)]
+mod reply_pool_tests {
+    use super::ReplyPool;
+
+    static POOL: ReplyPool<u32, 2> = ReplyPool::new();
+
+    #[test]
+    fn replies_are_correlated_and_slots_reused() {
+        futures_lite::future::block_on(async {
+            let (first, first_sender) = POOL.acquire().await;
+            let (second, second_sender) = POOL.acquire().await;
+            second_sender.send(20);
+            first_sender.send(10);
+            assert_eq!(first.receive().await, Ok(10));
+            assert_eq!(second.receive().await, Ok(20));
+            let (third, third_sender) = POOL.acquire().await;
+            third_sender.send(30);
+            assert_eq!(third.receive().await, Ok(30));
+
+            let (abandoned, late_sender) = POOL.acquire().await;
+            drop(abandoned);
+            late_sender.send(40);
+            let (reused, current_sender) = POOL.acquire().await;
+            current_sender.send(50);
+            assert_eq!(reused.receive().await, Ok(50));
+
+            // A dropped actor-side sender models an actor panic or a request
+            // envelope discarded during shutdown. It must wake the requester.
+            let (dropped_reply, actor_sender) = POOL.acquire().await;
+            drop(actor_sender);
+            assert_eq!(dropped_reply.receive().await, Err(crate::RequestError::ResponseDropped));
+        });
     }
 }
 

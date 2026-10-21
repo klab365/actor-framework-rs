@@ -1,13 +1,17 @@
 #![cfg(feature = "tokio")]
 
 use actor_framework::{actor_module, actor_system};
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
+struct Amount(u32);
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Changed(u32);
 
-#[derive(Debug)]
+#[derive(Debug, actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct Reset;
 
 struct Unobserved;
@@ -24,14 +28,26 @@ struct ResetActor;
 
 struct SlowActor;
 struct CrashActor;
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct Slow(u8);
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct Crash(tokio::sync::oneshot::Sender<()>);
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct BlockUntilReleased;
 struct ShutdownActor;
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct PartialClosed;
 #[derive(Clone)]
 struct PartialEvent;
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct ClosePartial(tokio::sync::oneshot::Sender<()>);
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct QueueMessage;
 
 struct PartialRecorder;
@@ -44,8 +60,8 @@ static SHUTDOWN_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::Atom
 static SHUTDOWN_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
 #[actor_framework::actor_handler]
-async fn increment(state: &mut Counter, amount: u32) {
-    state.value += amount;
+async fn increment(state: &mut Counter, amount: Amount) {
+    state.value += amount.0;
 }
 
 #[actor_framework::actor_handler]
@@ -124,7 +140,7 @@ actor_module! {
     actors: [
         counter: Counter {
             mailbox_capacity: 2;
-            commands { u32 => increment; }
+            commands { Amount => increment; }
             events {}
         },
         first_recorder: Recorder {
@@ -224,7 +240,7 @@ async fn composes_multiple_modules_and_broadcasts_to_each_subscriber() {
     SECOND.lock().await.clear();
 
     let actors = start_actors();
-    actors.send(5_u32).await.unwrap();
+    actors.send(Amount(5)).await.unwrap();
     actors.publish(Changed(5)).await.unwrap();
     actors.send(Reset).await.unwrap();
 

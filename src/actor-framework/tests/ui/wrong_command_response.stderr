@@ -1,0 +1,14 @@
+error[E0308]: mismatched types
+  --> tests/ui/wrong_command_response.rs:8:1
+   |
+ 8 | / actor_framework::actor_module! {
+ 9 | |     manifest commands;
+10 | |     actors: [worker: () { mailbox_capacity: 1; commands { Query => handler; } events {} }];
+11 | | }
+   | |_^ expected `Result<u32, ()>`, found `Result<bool, ()>`
+12 |   actor_framework::actor_system! { struct System { modules: [commands]; } }
+   |   ------------------------------------------------------------------------- in this macro invocation
+   |
+   = note: expected enum `Result<u32, ()>`
+              found enum `Result<bool, ()>`
+   = note: this error originates in the macro `commands` which comes from the expansion of the macro `actor_framework::actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)

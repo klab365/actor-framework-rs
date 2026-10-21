@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: request_capacity must be greater than zero
+ --> tests/ui/zero_request_capacity.rs:1:1
+  |
+1 | #[actor_framework::actor_handler(request_capacity = 0)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here

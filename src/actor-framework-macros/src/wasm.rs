@@ -44,29 +44,40 @@ pub(super) fn expand(
             let ty = route.message;
             let handler = handler_adapter(&route.handler);
             let variant = format_ident!("Message{}", index);
-            variants.push(quote!(#variant(#ty)));
-            arms.push(quote!(#message_enum::#variant(message) => {
-                let () = #handler(&task_context, &mut #state_var, message).await;
-            }));
             if index < command_count {
+                variants.push(quote!(#variant(#ty, Option<::actor_framework::wasm::Sender<<#ty as ::actor_framework::Command>::Response>>)));
+                arms.push(quote!(#message_enum::#variant(message, reply) => {
+                    let response: <#ty as ::actor_framework::Command>::Response = #handler(&task_context, &mut #state_var, message).await;
+                    if let Some(reply) = reply { let _ = ::actor_framework::ActorSendRoute::send_route(&reply, response).await; }
+                    else { ::actor_framework::ObserveCommandResponse::observe(response); }
+                }));
                 routes.push(quote! {
                     impl ::actor_framework::ActorSendRoute<#ty> for #context {
                         async fn send_route(&self, message: #ty) -> Result<(), ::actor_framework::SendError> {
-                            ::actor_framework::ActorSendRoute::send_route(&self.#field, #message_enum::#variant(message)).await
+                            ::actor_framework::ActorSendRoute::send_route(&self.#field, #message_enum::#variant(message, None)).await
                         }
                     }
                     impl ::actor_framework::ActorTrySendRoute<#ty> for #context {
                         fn try_send_route(&self, message: #ty) -> Result<(), ::actor_framework::TrySendError<#ty>> {
-                            match self.#field.try_send(#message_enum::#variant(message)) {
+                            match self.#field.try_send(#message_enum::#variant(message, None)) {
                                 Ok(()) => Ok(()),
-                                Err(::actor_framework::TrySendError::Full(#message_enum::#variant(message))) => Err(::actor_framework::TrySendError::Full(message)),
-                                Err(::actor_framework::TrySendError::Closed(#message_enum::#variant(message))) => Err(::actor_framework::TrySendError::Closed(message)),
+                                Err(::actor_framework::TrySendError::Full(#message_enum::#variant(message, _))) => Err(::actor_framework::TrySendError::Full(message)),
+                                Err(::actor_framework::TrySendError::Closed(#message_enum::#variant(message, _))) => Err(::actor_framework::TrySendError::Closed(message)),
                                 _ => unreachable!("the attempted variant is preserved"),
                             }
                         }
                     }
+                    impl ::actor_framework::ActorRequestRoute<#ty> for #context {
+                        async fn request_route(&self, message: #ty) -> Result<<#ty as ::actor_framework::Command>::Response, ::actor_framework::RequestError> {
+                            let (reply, mut receive) = ::actor_framework::wasm::channel(1).map_err(|_| ::actor_framework::RequestError::Closed)?;
+                            ::actor_framework::ActorSendRoute::send_route(&self.#field, #message_enum::#variant(message, Some(reply))).await.map_err(|_| ::actor_framework::RequestError::Closed)?;
+                            ::actor_framework::Receiver::receive(&mut receive).await.ok_or(::actor_framework::RequestError::ResponseDropped)
+                        }
+                    }
                 });
             } else {
+                variants.push(quote!(#variant(#ty)));
+                arms.push(quote!(#message_enum::#variant(message) => { let () = #handler(&task_context, &mut #state_var, message).await; }));
                 let key = quote!(#ty).to_string();
                 if !event_groups.iter().any(|(ty, _)| quote!(#ty).to_string() == key) {
                     event_groups.push((ty.clone(), Vec::new()));
@@ -133,6 +144,10 @@ pub(super) fn expand(
         }
         impl #name {
             pub fn builder() -> #builder { #builder { #(#empty),* } }
+            pub async fn request<M: ::actor_framework::Command>(&self, message: M) -> Result<M::Response, ::actor_framework::RequestError>
+            where #context: ::actor_framework::ActorRequestRoute<M> {
+                ::actor_framework::ActorRequestRoute::request_route(&self.__context, message).await
+            }
             pub async fn send<M>(&self, message: M) -> Result<(), ::actor_framework::SendError>
             where #context: ::actor_framework::ActorSendRoute<M> {
                 ::actor_framework::ActorSendRoute::send_route(&self.__context, message).await

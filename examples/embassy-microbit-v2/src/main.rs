@@ -9,7 +9,15 @@ use embassy_nrf::gpio::{Input, Level, Output, OutputDrive, Pull};
 use embassy_time::{Duration, Timer};
 use panic_probe as _;
 
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 struct ButtonPressed;
+
+/// Query command whose typed response is observed through `request()`.
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = Result<u32, ()>)]
+struct ReadCount;
+
 #[derive(Clone)]
 struct PressObserved(u32);
 
@@ -29,6 +37,12 @@ async fn count_press(events: ActorAddress<ActorEvent<PressObserved>>, counter: &
         .publish(PressObserved(counter.count))
         .await
         .expect("event route is open");
+}
+
+/// Reserve two static reply slots so independent callers may query together.
+#[actor_handler(request_capacity = 2)]
+async fn read_count(counter: &mut Counter, _command: ReadCount) -> Result<u32, ()> {
+    Ok(counter.count)
 }
 
 #[actor_handler]
@@ -52,7 +66,7 @@ actor_module! {
     actors: [
         counter: Counter {
             mailbox_capacity: 4;
-            commands { ButtonPressed => count_press; }
+            commands { ButtonPressed => count_press;, ReadCount => read_count; }
             events {}
         },
         activity_led: ActivityLed {
@@ -86,7 +100,17 @@ async fn main(spawner: Spawner) {
     info!("typed actor-address micro:bit example started");
     loop {
         button.wait_for_low().await;
+        // `send` only confirms bounded-mailbox acceptance; it does not wait
+        // for `count_press` to execute or return a value.
         actors.send(ButtonPressed).await.expect("counter actor stopped");
+
+        // `request` waits for the typed handler response. Handler errors stay
+        // inside the outer transport result.
+        match actors.request(ReadCount).await {
+            Ok(Ok(count)) => info!("counter now reads {}", count),
+            Ok(Err(())) => info!("counter rejected read"),
+            Err(_) => info!("counter actor stopped before replying"),
+        }
         button.wait_for_high().await;
         Timer::after(Duration::from_millis(50)).await;
     }

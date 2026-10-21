@@ -6,10 +6,12 @@ use wasm_bindgen::prelude::*;
 const ROUNDS: u8 = 3;
 const ROUND_DELAY_MS: i32 = 700;
 
-#[derive(Debug)]
+#[derive(Debug, actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 pub struct Ping(pub u8);
 
-#[derive(Debug)]
+#[derive(Debug, actor_framework::ActorCommand)]
+#[actor_command(response = ())]
 pub struct Pong(pub u8);
 
 pub struct PingActor(pub Rc<Cell<u8>>);

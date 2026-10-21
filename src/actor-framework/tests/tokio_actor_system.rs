@@ -7,6 +7,10 @@ use tokio::sync::Mutex;
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct CounterChanged(u32);
 
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = ())]
+struct Amount(u32);
+
 struct CounterState {
     value: u32,
 }
@@ -16,8 +20,8 @@ struct ObserverState {
 }
 
 #[actor_framework::actor_handler]
-async fn increment(events: ActorAddress<ActorEvent<CounterChanged>>, state: &mut CounterState, amount: u32) {
-    state.value += amount;
+async fn increment(events: ActorAddress<ActorEvent<CounterChanged>>, state: &mut CounterState, amount: Amount) {
+    state.value += amount.0;
     events.publish(CounterChanged(state.value)).await.unwrap();
 }
 
@@ -32,7 +36,7 @@ actor_framework::actor_module! {
     actors: [
         counter: CounterState {
             mailbox_capacity: 4;
-            commands { u32 => increment; }
+            commands { Amount => increment; }
             events {}
         },
         observer_a: ObserverState {
@@ -71,7 +75,7 @@ async fn sends_command_and_broadcasts_event_to_all_subscribers() {
         })
         .start()
         .unwrap();
-    actors.send(3_u32).await.unwrap();
+    actors.send(Amount(3)).await.unwrap();
     tokio::task::yield_now().await;
     assert_eq!(*OBSERVED_A.lock().await, vec![3]);
     assert_eq!(*OBSERVED_B.lock().await, vec![3]);

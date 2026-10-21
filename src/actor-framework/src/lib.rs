@@ -15,7 +15,8 @@ pub use actor_address::{ActorAddress, ActorCommand, ActorEvent};
 #[cfg(feature = "wasm")]
 pub mod wasm;
 pub use crate::core::{
-    Actor, ActorPublishRoute, ActorSendRoute, ActorTrySendRoute, Mailbox, Receiver, SendError, TrySendError, run,
+    Actor, ActorPublishRoute, ActorRequestRoute, ActorSendRoute, ActorTrySendRoute, Command, Mailbox,
+    ObserveCommandResponse, Receiver, RequestError, SendError, TrySendError, run,
 };
 #[cfg(feature = "embassy")]
 #[doc(hidden)]
@@ -48,7 +49,7 @@ pub use actor_framework_macros::__actor_system_embassy as __actor_system;
 #[doc(hidden)]
 pub use actor_framework_macros::__actor_system_wasm as __actor_system;
 #[cfg(any(feature = "tokio", feature = "wasm", feature = "embassy"))]
-pub use actor_framework_macros::{actor_handler, actor_module};
+pub use actor_framework_macros::{ActorCommand, actor_handler, actor_module};
 
 /// Compose manifests using the selected runtime backend.
 #[cfg(any(feature = "tokio", feature = "wasm", feature = "embassy"))]
