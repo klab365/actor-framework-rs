@@ -7,8 +7,9 @@ mailboxes. The published package is `actor-framework-rs`; import it as
 
 ## Status and supported targets
 
-This is an early-stage `0.1` release. The runtime-neutral core is `no_std`,
-allocator-free, and does not select an executor. Generated actor systems are
+The `1.0` release provides a stable public API for the documented features. The
+runtime-neutral core is `no_std`, allocator-free, and does not select an executor.
+Generated actor systems are
 available for:
 
 - **Tokio** (the default feature) for `std` applications;
@@ -37,7 +38,7 @@ Tokio is enabled by default:
 
 ```toml
 [dependencies]
-actor-framework-rs = "0.1"
+actor-framework-rs = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -45,10 +46,10 @@ For a runtime-specific build, disable defaults explicitly:
 
 ```toml
 # Browser/worker WASM
-actor-framework-rs = { version = "0.1", default-features = false, features = ["wasm"] }
+actor-framework-rs = { version = "1", default-features = false, features = ["wasm"] }
 
 # Embassy / no_std application
-actor-framework-rs = { version = "0.1", default-features = false, features = ["embassy"] }
+actor-framework-rs = { version = "1", default-features = false, features = ["embassy"] }
 ```
 
 `default-features = false` without a runtime feature exposes the heap-free
