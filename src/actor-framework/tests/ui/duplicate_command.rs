@@ -10,7 +10,6 @@ async fn second(_: &App, _: &mut State, _: Command) {}
 
 actor_module! {
     pub manifest routes;
-    events: [];
     actors: [
         first_actor: State {
             mailbox_capacity: 1;

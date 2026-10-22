@@ -10,7 +10,6 @@ async fn handle(_state: &mut State, _message: Command) -> Result<(), ()> {
 
 actor_module! {
     pub manifest routes;
-    events: [];
     actors: [
         worker: State {
             mailbox_capacity: 1;

@@ -32,7 +32,6 @@ async fn observe(state: &mut ObserverState, event: CounterChanged) {
 
 actor_framework::actor_module! {
     pub manifest counter_module;
-    events: [CounterChanged];
     actors: [
         counter: CounterState {
             mailbox_capacity: 4;

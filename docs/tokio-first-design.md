@@ -138,7 +138,7 @@ Compile-Fail-Tests in `src/actor-framework/tests/ui/` prüfen doppelte Command-R
 
 `try_send` gibt die ursprüngliche Nachricht bei voller oder geschlossener Mailbox zurück. Integrationstests prüfen volle Mailbox, das Schließen nach Ende eines Actor-Tasks sowie `shutdown()` während eines laufenden Handlers und die Meldung eines Actor-Panics. `publish` sendet sequenziell in Manifest-Reihenfolge. Bei einem geschlossenen Subscriber gibt es einen Fehler; bereits vorher akzeptierte Zustellungen werden nicht zurückgerollt und spätere Subscriber erhalten das Event nicht. Diese partielle Zustellung ist eine bewusste Konsequenz der V1-Implementierung und muss vor Stabilisierung der API entweder so bestätigt oder durch anderes Verhalten ersetzt werden.
 
-Events ohne Subscriber müssen in der `events: [...]`-Deklaration eines ausgewählten Moduls aufgeführt werden, damit der Dispatcher ihren Typ kennt und `publish` als No-op generieren kann.
+Events ohne Subscriber werden bei einem Actor mit einer leeren Route wie `events { Event => []; }` registriert. Der Dispatcher erzeugt dafür einen erfolgreichen `publish`-No-op.
 
 ## Runtime-neutraler Core (Issue #4)
 

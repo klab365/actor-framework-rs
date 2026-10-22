@@ -38,12 +38,11 @@ pub async fn observe(state: &mut Observer, event: Changed) {
 
 actor_module! {
     pub manifest counters;
-    events: [Changed, Unobserved];
     actors: [
         counter: Counter {
             mailbox_capacity: capacity();
             commands { Add => add;, ReadTotal => read_total; }
-            events {}
+            events { Unobserved => []; }
         },
         first: Observer {
             mailbox_capacity: 1;

@@ -62,7 +62,6 @@ async fn blink(led: &mut ActivityLed, event: PressObserved) {
 
 actor_module! {
     manifest buttons;
-    events: [PressObserved];
     actors: [
         counter: Counter {
             mailbox_capacity: 4;

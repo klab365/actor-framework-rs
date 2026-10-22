@@ -3,18 +3,18 @@ error: a command may have only one actor handler
    |
 11 | / actor_module! {
 12 | |     pub manifest routes;
-13 | |     events: [];
-14 | |     actors: [
+13 | |     actors: [
+14 | |         first_actor: State {
 ...  |
-25 | |     ];
-26 | | }
+24 | |     ];
+25 | | }
    | |_^
-27 |
-28 | / actor_system! {
-29 | |     pub struct App {
-30 | |         modules: [routes];
-31 | |     }
-32 | | }
+26 |
+27 | / actor_system! {
+28 | |     pub struct App {
+29 | |         modules: [routes];
+30 | |     }
+31 | | }
    | |_- in this macro invocation
    |
    = note: this error originates in the macro `routes` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -9,7 +9,6 @@ async fn handle(_: &mut State, _: Known) {}
 
 actor_module! {
     pub manifest routes;
-    events: [];
     actors: [
         actor: State {
             mailbox_capacity: 1;

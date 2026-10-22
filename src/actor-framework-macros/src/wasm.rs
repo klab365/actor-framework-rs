@@ -40,9 +40,14 @@ pub(super) fn expand(
         let mut variants = Vec::new();
         let mut arms = Vec::new();
         let command_count = actor.commands.len();
-        for (index, route) in actor.commands.into_iter().chain(actor.events).enumerate() {
+        for (index, route) in actor
+            .commands
+            .into_iter()
+            .chain(actor.events.into_iter().filter(|route| route.handler.is_some()))
+            .enumerate()
+        {
             let ty = route.message;
-            let handler = handler_adapter(&route.handler);
+            let handler = handler_adapter(route.handler.as_ref().expect("handler route"));
             let variant = format_ident!("Message{}", index);
             if index < command_count {
                 variants.push(quote!(#variant(#ty, Option<::actor_framework::wasm::Sender<<#ty as ::actor_framework::Command>::Response>>)));
