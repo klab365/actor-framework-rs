@@ -9,19 +9,16 @@ async fn handle(_state: &mut State, _message: Command) -> Result<(), ()> {
 }
 
 actor_module! {
-    pub manifest routes;
-    actors: [
-        worker: State {
-            mailbox_capacity: 1;
-            commands { Command => handle; }
-            events {}
-        }
-    ];
+    pub actor worker: State {
+        mailbox_capacity: 1;
+        commands { Command => handle; }
+        events {}
+    };
 }
 
 actor_system! {
     pub struct App {
-        modules: [routes];
+        actors: [worker];
     }
 }
 

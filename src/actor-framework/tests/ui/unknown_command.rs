@@ -8,19 +8,16 @@ struct State;
 async fn handle(_: &mut State, _: Known) {}
 
 actor_module! {
-    pub manifest routes;
-    actors: [
-        actor: State {
-            mailbox_capacity: 1;
-            commands { Known => handle; }
-            events {}
-        }
-    ];
+    pub actor actor: State {
+        mailbox_capacity: 1;
+        commands { Known => handle; }
+        events {}
+    };
 }
 
 actor_system! {
     pub struct App {
-        modules: [routes];
+        actors: [actor];
     }
 }
 

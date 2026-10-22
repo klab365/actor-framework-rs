@@ -6,8 +6,7 @@ struct Query;
 async fn handler(_: &mut (), _: Query) -> Result<bool, ()> { Ok(true) }
 
 actor_framework::actor_module! {
-    manifest commands;
-    actors: [worker: () { mailbox_capacity: 1; commands { Query => handler; } events {} }];
+    actor worker: () { mailbox_capacity: 1; commands { Query => handler; } events {} };
 }
-actor_framework::actor_system! { struct System { modules: [commands]; } }
+actor_framework::actor_system! { struct System { actors: [worker]; } }
 fn main() {}

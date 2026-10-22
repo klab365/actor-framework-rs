@@ -10,7 +10,7 @@ not Tokio or threads. Actor state, context, and messages may be non-`Send` (e.g.
 
 The adapter implements the existing `ActorSendRoute`, `ActorPublishRoute`, and
 `Receiver` contracts. Low-level actors can use the shared `core::run` loop;
-manifest actors use generated serial dispatch loops, as on Tokio.
+declared actors use generated serial dispatch loops, as on Tokio.
 `channel::<Message>(capacity)` returns a concrete `Sender<Message>` command route
 and a single receiver. `Publisher<Message, N>` stores an array of subscriber
 senders, so fan-out is statically typed and statically sized. Applications build
@@ -18,7 +18,7 @@ context structs containing these concrete routes and implement the core route
 traits to forward permitted messages. There is no registry, type erasure, or
 runtime message-type lookup. Unsupported message types fail type checking.
 
-`actor_module!` and `actor_system!` support the same manifest and builder syntax
+`actor_module!` and `actor_system!` support the same actor declaration and builder syntax
 as Tokio. On `wasm32` with feature `wasm`, systems generate local tasks, bounded
 WASM channels, typed send/try_send/publish routes, and module-context capabilities.
 Native targets with `tokio` keep the Tokio backend even with all features enabled.

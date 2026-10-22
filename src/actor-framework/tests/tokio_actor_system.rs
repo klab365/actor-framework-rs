@@ -31,29 +31,32 @@ async fn observe(state: &mut ObserverState, event: CounterChanged) {
 }
 
 actor_framework::actor_module! {
-    pub manifest counter_module;
-    actors: [
-        counter: CounterState {
-            mailbox_capacity: 4;
-            commands { Amount => increment; }
-            events {}
-        },
-        observer_a: ObserverState {
-            mailbox_capacity: 4;
-            commands {}
-            events { CounterChanged => observe; }
-        },
-        observer_b: ObserverState {
-            mailbox_capacity: 4;
-            commands {}
-            events { CounterChanged => observe; }
-        }
-    ];
+    pub actor counter: CounterState {
+        mailbox_capacity: 4;
+        commands { Amount => increment; }
+        events {}
+    };
+}
+
+actor_framework::actor_module! {
+    pub actor observer_a: ObserverState {
+        mailbox_capacity: 4;
+        commands {}
+        events { CounterChanged => observe; }
+    };
+}
+
+actor_framework::actor_module! {
+    pub actor observer_b: ObserverState {
+        mailbox_capacity: 4;
+        commands {}
+        events { CounterChanged => observe; }
+    };
 }
 
 actor_system! {
     pub struct AppActors {
-        modules: [counter_module];
+        actors: [counter, observer_a, observer_b];
     }
 }
 

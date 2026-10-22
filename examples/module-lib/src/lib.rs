@@ -32,17 +32,17 @@ pub async fn record(_state: &mut Recorder, event: Added) {
 }
 
 actor_module! {
-    pub manifest counter;
-    actors: [
-        counter: Counter {
-            mailbox_capacity: 8;
-            commands { Add => add; }
-            events {}
-        },
-        recorder: Recorder {
-            mailbox_capacity: 8;
-            commands {}
-            events { Added => record; }
-        }
-    ];
+    pub actor counter: Counter {
+        mailbox_capacity: 8;
+        commands { Add => add; }
+        events {}
+    };
+}
+
+actor_module! {
+    pub actor recorder: Recorder {
+        mailbox_capacity: 8;
+        commands {}
+        events { Added => record; }
+    };
 }

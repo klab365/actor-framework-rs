@@ -37,29 +37,32 @@ pub async fn observe(state: &mut Observer, event: Changed) {
 }
 
 actor_module! {
-    pub manifest counters;
-    actors: [
-        counter: Counter {
-            mailbox_capacity: capacity();
-            commands { Add => add;, ReadTotal => read_total; }
-            events { Unobserved => []; }
-        },
-        first: Observer {
-            mailbox_capacity: 1;
-            commands {}
-            events { Changed => observe; }
-        },
-        second: Observer {
-            mailbox_capacity: 1;
-            commands {}
-            events { Changed => observe; }
-        }
-    ];
+    pub actor counter: Counter {
+        mailbox_capacity: capacity();
+        commands { Add => add;, ReadTotal => read_total; }
+        events { Unobserved => []; }
+    };
 }
-actor_system! { pub struct App { modules: [counters]; } }
+
+actor_module! {
+    pub actor first: Observer {
+        mailbox_capacity: 1;
+        commands {}
+        events { Changed => observe; }
+    };
+}
+
+actor_module! {
+    pub actor second: Observer {
+        mailbox_capacity: 1;
+        commands {}
+        events { Changed => observe; }
+    };
+}
+actor_system! { pub struct App { actors: [counter, first, second]; } }
 
 #[wasm_bindgen_test]
-async fn manifests_routes_builder_backpressure_and_shutdown() {
+async fn actors_route_builder_backpressure_and_shutdown() {
     assert!(matches!(
         App::builder().start(),
         Err(wasm::StartError::MissingActorState("counter"))

@@ -9,24 +9,24 @@ async fn first(_: &App, _: &mut State, _: Command) {}
 async fn second(_: &App, _: &mut State, _: Command) {}
 
 actor_module! {
-    pub manifest routes;
-    actors: [
-        first_actor: State {
-            mailbox_capacity: 1;
-            commands { Command => first; }
-            events {}
-        },
-        second_actor: State {
-            mailbox_capacity: 1;
-            commands { Command => second; }
-            events {}
-        }
-    ];
+    pub actor first_actor: State {
+        mailbox_capacity: 1;
+        commands { Command => first; }
+        events {}
+    };
+}
+
+actor_module! {
+    pub actor second_actor: State {
+        mailbox_capacity: 1;
+        commands { Command => second; }
+        events {}
+    };
 }
 
 actor_system! {
     pub struct App {
-        modules: [routes];
+        actors: [first_actor, second_actor];
     }
 }
 

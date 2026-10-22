@@ -140,75 +140,96 @@ static QUEUE_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 static QUEUE_COMPLETED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 actor_module! {
-    pub manifest counters;
-    actors: [
-        counter: Counter {
-            mailbox_capacity: 2;
-            commands { Amount => increment; }
-            events { Unobserved => []; }
-        },
-        first_recorder: Recorder {
-            mailbox_capacity: 2;
-            commands {}
-            events { Changed => record; }
-        },
-        second_recorder: Recorder {
-            mailbox_capacity: 2;
-            commands {}
-            events { Changed => record; }
-        }
-    ];
+    pub actor counter: Counter {
+        mailbox_capacity: 2;
+        commands { Amount => increment; }
+        events { Unobserved => []; }
+    };
 }
 
 actor_module! {
-    pub manifest maintenance;
-    actors: [
-        crash_actor: CrashActor {
-            mailbox_capacity: 1;
-            commands { Crash => crash; }
-            events {}
-        },
-        slow_actor: SlowActor {
-            mailbox_capacity: 1;
-            commands { Slow => wait_slow; }
-            events {}
-        },
-        reset_actor: ResetActor {
-            mailbox_capacity: 2;
-            commands { Reset => reset; }
-            events {}
-        },
-        shutdown_actor: ShutdownActor {
-            mailbox_capacity: 2;
-            commands { BlockUntilReleased => block_until_released; }
-            events {}
-        },
-        partial_first: PartialRecorder {
-            mailbox_capacity: 1;
-            commands {}
-            events { PartialEvent => record_partial; }
-        },
-        partial_closed: PartialClosed {
-            mailbox_capacity: 1;
-            commands { ClosePartial => close_partial; }
-            events { PartialEvent => discard_partial; }
-        },
-        partial_last: PartialRecorder {
-            mailbox_capacity: 1;
-            commands {}
-            events { PartialEvent => record_partial_last; }
-        },
-        queue: QueueState {
-            mailbox_capacity: 2;
-            commands { QueueMessage => queue_message; }
-            events {}
-        }
-    ];
+    pub actor first_recorder: Recorder {
+        mailbox_capacity: 2;
+        commands {}
+        events { Changed => record; }
+    };
+}
+
+actor_module! {
+    pub actor second_recorder: Recorder {
+        mailbox_capacity: 2;
+        commands {}
+        events { Changed => record; }
+    };
+}
+
+actor_module! {
+    pub actor crash_actor: CrashActor {
+        mailbox_capacity: 1;
+        commands { Crash => crash; }
+        events {}
+    };
+}
+
+actor_module! {
+    pub actor slow_actor: SlowActor {
+        mailbox_capacity: 1;
+        commands { Slow => wait_slow; }
+        events {}
+    };
+}
+
+actor_module! {
+    pub actor reset_actor: ResetActor {
+        mailbox_capacity: 2;
+        commands { Reset => reset; }
+        events {}
+    };
+}
+
+actor_module! {
+    pub actor shutdown_actor: ShutdownActor {
+        mailbox_capacity: 2;
+        commands { BlockUntilReleased => block_until_released; }
+        events {}
+    };
+}
+
+actor_module! {
+    pub actor partial_first: PartialRecorder {
+        mailbox_capacity: 1;
+        commands {}
+        events { PartialEvent => record_partial; }
+    };
+}
+
+actor_module! {
+    pub actor partial_closed: PartialClosed {
+        mailbox_capacity: 1;
+        commands { ClosePartial => close_partial; }
+        events { PartialEvent => discard_partial; }
+    };
+}
+
+actor_module! {
+    pub actor partial_last: PartialRecorder {
+        mailbox_capacity: 1;
+        commands {}
+        events { PartialEvent => record_partial_last; }
+    };
+}
+
+actor_module! {
+    pub actor queue: QueueState {
+        mailbox_capacity: 2;
+        commands { QueueMessage => queue_message; }
+        events {}
+    };
 }
 
 actor_system! {
     pub struct RuntimeSystem {
-        modules: [counters, maintenance];
+        actors: [counter, first_recorder, second_recorder, crash_actor, slow_actor, reset_actor, shutdown_actor, partial_first, partial_closed, partial_last, queue];
     }
 }
 

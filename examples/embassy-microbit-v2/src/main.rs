@@ -61,24 +61,24 @@ async fn blink(led: &mut ActivityLed, event: PressObserved) {
 }
 
 actor_module! {
-    manifest buttons;
-    actors: [
-        counter: Counter {
-            mailbox_capacity: 4;
-            commands { ButtonPressed => count_press;, ReadCount => read_count; }
-            events {}
-        },
-        activity_led: ActivityLed {
-            mailbox_capacity: 2;
-            commands {}
-            events { PressObserved => blink; }
-        }
-    ];
+    actor counter: Counter {
+        mailbox_capacity: 4;
+        commands { ButtonPressed => count_press;, ReadCount => read_count; }
+        events {}
+    };
+}
+
+actor_module! {
+    actor activity_led: ActivityLed {
+        mailbox_capacity: 2;
+        commands {}
+        events { PressObserved => blink; }
+    };
 }
 
 actor_system! {
     pub struct AppActors {
-        modules: [buttons];
+        actors: [counter, activity_led];
     }
 }
 

@@ -51,20 +51,20 @@ pub use actor_framework_macros::__actor_system_wasm as __actor_system;
 #[cfg(any(feature = "tokio", feature = "wasm", feature = "embassy"))]
 pub use actor_framework_macros::{ActorCommand, actor_handler, actor_module};
 
-/// Compose manifests using the selected runtime backend.
+/// Compose actors using the selected runtime backend.
 #[cfg(any(feature = "tokio", feature = "wasm", feature = "embassy"))]
 #[macro_export]
 macro_rules! actor_system {
     (
         $vis:vis struct $name:ident {
-            modules: [$($module:ident),* $(,)?];
+            actors: [$($actor:ident), * $(, )?];
         }
     ) => {
         $crate::__actor_framework_collect_modules! {
             $vis struct $name;
             actors: [];
             events: [];
-            remaining: [$($module,)*];
+            remaining: [$($actor,)*];
         }
     };
 }

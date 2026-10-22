@@ -40,24 +40,24 @@ async fn record_analog_value(actor: &mut TelemetryActor, event: AnalogValueChang
 }
 
 actor_module! {
-    pub manifest sensors;
-    actors: [
-        sensor: SensorActor {
-            mailbox_capacity: 8;
-            commands { GetAnalogInput => get_analog_input; }
-            events {}
-        },
-        telemetry: TelemetryActor {
-            mailbox_capacity: 4;
-            commands {}
-            events { AnalogValueChanged => record_analog_value; }
-        }
-    ];
+    pub actor sensor: SensorActor {
+        mailbox_capacity: 8;
+        commands { GetAnalogInput => get_analog_input; }
+        events {}
+    };
+}
+
+actor_module! {
+    pub actor telemetry: TelemetryActor {
+        mailbox_capacity: 4;
+        commands {}
+        events { AnalogValueChanged => record_analog_value; }
+    };
 }
 
 actor_system! {
     pub struct AppActors {
-        modules: [sensors];
+        actors: [sensors, sensors_telemetry];
     }
 }
 
@@ -80,7 +80,7 @@ Das Beispiel zeigt die implementierte API-Syntax; konkrete App-Typen und Nachric
 
 ### `actor_module!`
 
-Das Manifest ist die einzige Quelle der Wahrheit für Routen. Es deklariert pro Actor den State-Typ, Mailbox-Kapazität und freie Handler-Funktionen. Ein Handler hat die Form `async fn handler(state: &mut ActorState, message: Message) -> ()` und wird im Manifest als `Message => handler` eingetragen. Handler-Kommunikation wird separat entworfen.
+Jeder `actor_module!`-Aufruf deklariert genau einen Actor mit `actor: name: State { … };`. Das Manifest ist die einzige Quelle der Wahrheit für dessen Routen, State-Typ, explizite Mailbox-Kapazität und freie Handler-Funktionen. Mehrere Actoren werden ausschließlich über die Manifestliste in `actor_system!` komponiert. Die [Migration](actor-module-migration.md) beschreibt die Umstellung. Ein Handler hat die Form `async fn handler(state: &mut ActorState, message: Message) -> ()` und wird im Manifest als `Message => handler` eingetragen. Handler-Kommunikation wird separat entworfen.
 
 Das Makro erzeugt intern pro Actor einen Nachrichten-Enum und eine bounded Mailbox. Der Enum ist Implementierungsdetail: Nutzer müssen ihn nicht schreiben oder benennen. Die Manifest-Einträge liefern die Zuordnung der öffentlichen Nachrichtentypen zu den internen Mailbox-Varianten und Handlern.
 

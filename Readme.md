@@ -21,4 +21,4 @@ The runtime-neutral core is `no_std` and heap-free. Optional Tokio, WebAssembly,
 
 ## Current status
 
-The Tokio adapter supports reusable `actor_module!` manifests, bounded mailboxes, typed routing, and coordinated shutdown. WASM and Embassy backends are prototypes with runtime-specific lifecycle limits. See [Embassy notes](docs/embassy.md), [WASM notes](docs/wasm.md), [architecture](docs/architecture.md), and [Tokio design](docs/tokio-first-design.md).
+The Tokio adapter supports reusable `actor_module!` actor declarations, bounded mailboxes, typed routing, and coordinated shutdown. WASM and Embassy backends are prototypes with runtime-specific lifecycle limits. See [Embassy notes](docs/embassy.md), [WASM notes](docs/wasm.md), [architecture](docs/architecture.md), and [Tokio design](docs/tokio-first-design.md).

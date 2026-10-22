@@ -11,18 +11,15 @@ async fn handle(events: ActorAddress<ActorEvent<Event>>, _state: &mut State, _me
 }
 
 actor_module! {
-    pub manifest routes;
-    actors: [
-        actor: State {
-            mailbox_capacity: 1;
-            commands { Command => handle; }
-            events {}
-        }
-    ];
+    pub actor actor: State {
+        mailbox_capacity: 1;
+        commands { Command => handle; }
+        events {}
+    };
 }
 
 actor_system! {
-    pub struct App { modules: [routes]; }
+    pub struct App { actors: [actor]; }
 }
 
 fn main() {}

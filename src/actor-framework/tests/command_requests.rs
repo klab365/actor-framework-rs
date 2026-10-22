@@ -19,14 +19,13 @@ async fn crash(_: &mut (), _: CrashQuery) -> Result<(), ()> {
 }
 
 actor_framework::actor_module! {
-    manifest query_module;
-    actors: [worker: () {
-        mailbox_capacity: 2;
-        commands { Query => handle;, CrashQuery => crash; }
-        events {}
-    }];
+    actor worker: () {
+    mailbox_capacity: 2;
+    commands { Query => handle;, CrashQuery => crash; }
+    events {}
+};
 }
-actor_framework::actor_system! { struct Queries { modules: [query_module]; } }
+actor_framework::actor_system! { struct Queries { actors: [worker]; } }
 
 #[tokio::test]
 async fn request_separates_handler_result_from_transport_error() {

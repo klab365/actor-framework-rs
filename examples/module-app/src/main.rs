@@ -1,10 +1,10 @@
 use actor_framework::actor_system;
-use actor_framework_module_example::counter;
 use actor_framework_module_example::{Add, Counter, LAST, Recorder};
+use actor_framework_module_example::{counter, recorder};
 
 actor_system! {
     pub struct AppActors {
-        modules: [counter];
+        actors: [counter, recorder];
     }
 }
 

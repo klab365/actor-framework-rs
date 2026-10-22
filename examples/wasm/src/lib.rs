@@ -48,23 +48,23 @@ pub async fn receive_pong(ping: ActorAddress<ActorCommand<Ping>>, state: &mut Po
 }
 
 actor_module! {
-    manifest ping_pong;
-    actors: [
-        ping: PingActor {
-            mailbox_capacity: 1;
-            commands { Ping => receive_ping; }
-            events {}
-        },
-        pong: PongActor {
-            mailbox_capacity: 1;
-            commands { Pong => receive_pong; }
-            events {}
-        }
-    ];
+    actor ping: PingActor {
+        mailbox_capacity: 1;
+        commands { Ping => receive_ping; }
+        events {}
+    };
+}
+
+actor_module! {
+    actor pong: PongActor {
+        mailbox_capacity: 1;
+        commands { Pong => receive_pong; }
+        events {}
+    };
 }
 
 actor_system! {
-    pub struct PingPongActors { modules: [ping_pong]; }
+    pub struct PingPongActors { actors: [ping, pong]; }
 }
 
 /// Run a finite browser-visible ping-pong exchange.

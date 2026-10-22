@@ -44,23 +44,23 @@ async fn store(_actor: &mut Logger, message: Store) {
 }
 
 actor_module! {
-    manifest test_manifest;
-    actors: [
-        counter: Counter {
-            mailbox_capacity: 1;
-            commands { Add => add; }
-            events {}
-        },
-        logger: Logger {
-            mailbox_capacity: 1;
-            commands { Store => store; }
-            events { Changed => log; }
-        }
-    ];
+    actor counter: Counter {
+        mailbox_capacity: 1;
+        commands { Add => add; }
+        events {}
+    };
+}
+
+actor_module! {
+    actor logger: Logger {
+        mailbox_capacity: 1;
+        commands { Store => store; }
+        events { Changed => log; }
+    };
 }
 
 actor_system! {
-    struct TestActors { modules: [test_manifest]; }
+    struct TestActors { actors: [counter, logger]; }
 }
 
 #[task]
