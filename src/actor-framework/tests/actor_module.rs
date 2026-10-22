@@ -60,7 +60,11 @@ static SHUTDOWN_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::Atom
 static SHUTDOWN_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
 #[actor_framework::actor_handler]
-async fn increment(events: actor_framework::ActorAddress<actor_framework::ActorEvent<Unobserved>>, state: &mut Counter, amount: Amount) {
+async fn increment(
+    events: actor_framework::ActorAddress<actor_framework::ActorEvent<Unobserved>>,
+    state: &mut Counter,
+    amount: Amount,
+) {
     state.value += amount.0;
     events.publish(Unobserved).await.unwrap();
 }
