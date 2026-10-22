@@ -21,36 +21,40 @@ pub struct PongActor {
     completed: actor_framework::wasm::Sender<()>,
 }
 
-#[actor_framework::actor_handler]
-pub async fn receive_ping(pong: ActorAddress<ActorCommand<Pong>>, state: &mut PingActor, Ping(round): Ping) {
-    pause_between_rounds().await;
-    state.0.set(state.0.get() + 1);
-    log(&format!("Ping received round {round}"));
-    log(&format!("Ping sending Pong round {round}"));
-    pong.post(Pong(round)).await.unwrap();
+impl PingActor {
+    #[actor_framework::actor_handler]
+    pub async fn receive_ping(&mut self, pong: ActorAddress<ActorCommand<Pong>>, Ping(round): Ping) {
+        pause_between_rounds().await;
+        self.0.set(self.0.get() + 1);
+        log(&format!("Ping received round {round}"));
+        log(&format!("Ping sending Pong round {round}"));
+        pong.post(Pong(round)).await.unwrap();
+    }
 }
 
-#[actor_framework::actor_handler]
-pub async fn receive_pong(ping: ActorAddress<ActorCommand<Ping>>, state: &mut PongActor, Pong(round): Pong) {
-    pause_between_rounds().await;
-    state.received.set(state.received.get() + 1);
-    log(&format!("Pong received round {round}"));
+impl PongActor {
+    #[actor_framework::actor_handler]
+    pub async fn receive_pong(&mut self, ping: ActorAddress<ActorCommand<Ping>>, Pong(round): Pong) {
+        pause_between_rounds().await;
+        self.received.set(self.received.get() + 1);
+        log(&format!("Pong received round {round}"));
 
-    if round == ROUNDS {
-        log("Pong reached the final round and is terminating the sequence");
-        log("Pong sending completion acknowledgement");
-        ActorSendRoute::send_route(&state.completed, ()).await.unwrap();
-    } else {
-        let next_round = round + 1;
-        log(&format!("Pong sending Ping round {next_round}"));
-        ping.post(Ping(next_round)).await.unwrap();
+        if round == ROUNDS {
+            log("Pong reached the final round and is terminating the sequence");
+            log("Pong sending completion acknowledgement");
+            ActorSendRoute::send_route(&self.completed, ()).await.unwrap();
+        } else {
+            let next_round = round + 1;
+            log(&format!("Pong sending Ping round {next_round}"));
+            ping.post(Ping(next_round)).await.unwrap();
+        }
     }
 }
 
 actor! {
     actor ping: PingActor {
         mailbox_capacity: 1;
-        commands { Ping => receive_ping; }
+        commands { Ping => PingActor::receive_ping; }
         events {}
     };
 }
@@ -58,7 +62,7 @@ actor! {
 actor! {
     actor pong: PongActor {
         mailbox_capacity: 1;
-        commands { Pong => receive_pong; }
+        commands { Pong => PongActor::receive_pong; }
         events {}
     };
 }

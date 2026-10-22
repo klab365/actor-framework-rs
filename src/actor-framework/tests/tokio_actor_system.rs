@@ -19,21 +19,25 @@ struct ObserverState {
     observed: Arc<Mutex<Vec<u32>>>,
 }
 
-#[actor_framework::actor_handler]
-async fn increment(events: ActorAddress<ActorEvent<CounterChanged>>, state: &mut CounterState, amount: Amount) {
-    state.value += amount.0;
-    events.publish(CounterChanged(state.value)).await.unwrap();
+impl CounterState {
+    #[actor_framework::actor_handler]
+    async fn increment(&mut self, events: ActorAddress<ActorEvent<CounterChanged>>, amount: Amount) {
+        self.value += amount.0;
+        events.publish(CounterChanged(self.value)).await.unwrap();
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn observe(state: &mut ObserverState, event: CounterChanged) {
-    state.observed.lock().await.push(event.0);
+impl ObserverState {
+    #[actor_framework::actor_handler]
+    async fn observe(&mut self, event: CounterChanged) {
+        self.observed.lock().await.push(event.0);
+    }
 }
 
 actor_framework::actor! {
     pub actor counter: CounterState {
         mailbox_capacity: 4;
-        commands { Amount => increment; }
+        commands { Amount => CounterState::increment; }
         events {}
     };
 }
@@ -42,7 +46,7 @@ actor_framework::actor! {
     pub actor observer_a: ObserverState {
         mailbox_capacity: 4;
         commands {}
-        events { CounterChanged => observe; }
+        events { CounterChanged => ObserverState::observe; }
     };
 }
 
@@ -50,7 +54,7 @@ actor_framework::actor! {
     pub actor observer_b: ObserverState {
         mailbox_capacity: 4;
         commands {}
-        events { CounterChanged => observe; }
+        events { CounterChanged => ObserverState::observe; }
     };
 }
 

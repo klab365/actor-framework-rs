@@ -6,9 +6,11 @@ allocated reply-slot pool, so the core remains heap-free. Pool capacity is set
 on the handler:
 
 ```rust,ignore
-#[actor_framework::actor_handler(request_capacity = 4)]
-async fn query(state: &mut State, command: Query) -> Result<Value, QueryError> {
-    // ...
+impl State {
+    #[actor_framework::actor_handler(request_capacity = 4)]
+    async fn query(&mut self, command: Query) -> Result<Value, QueryError> {
+        // ...
+    }
 }
 ```
 

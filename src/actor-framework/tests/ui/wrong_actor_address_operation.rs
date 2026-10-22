@@ -5,15 +5,17 @@ struct Command;
 struct Event;
 struct State;
 
+impl State {
 #[actor_handler]
-async fn handle(events: ActorAddress<ActorEvent<Event>>, _state: &mut State, _message: Command) {
+async fn handle(&mut self, events: ActorAddress<ActorEvent<Event>>,  _message: Command) {
     events.post(Event).await.unwrap();
+}
 }
 
 actor! {
     pub actor actor: State {
         mailbox_capacity: 1;
-        commands { Command => handle; }
+        commands { Command => State::handle; }
         events {}
     };
 }

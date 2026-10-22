@@ -59,70 +59,93 @@ static SLOW_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 static SHUTDOWN_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SHUTDOWN_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
-#[actor_framework::actor_handler]
-async fn increment(
-    events: actor_framework::ActorAddress<actor_framework::ActorEvent<Unobserved>>,
-    state: &mut Counter,
-    amount: Amount,
-) {
-    state.value += amount.0;
-    events.publish(Unobserved).await.unwrap();
+impl Counter {
+    #[actor_framework::actor_handler]
+    async fn increment(
+        &mut self,
+        events: actor_framework::ActorAddress<actor_framework::ActorEvent<Unobserved>>,
+
+        amount: Amount,
+    ) {
+        self.value += amount.0;
+        events.publish(Unobserved).await.unwrap();
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn record(state: &mut Recorder, event: Changed) {
-    state.values.lock().await.push(event.0);
+impl Recorder {
+    #[actor_framework::actor_handler]
+    async fn record(&mut self, event: Changed) {
+        self.values.lock().await.push(event.0);
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn reset(_state: &mut ResetActor, _message: Reset) {
-    RESET_SEEN.store(true, std::sync::atomic::Ordering::SeqCst);
+impl ResetActor {
+    #[actor_framework::actor_handler]
+    async fn reset(&mut self, _message: Reset) {
+        RESET_SEEN.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn wait_slow(_state: &mut SlowActor, _message: Slow) {
-    SLOW_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
-    SLOW_RELEASE.notified().await;
+impl SlowActor {
+    #[actor_framework::actor_handler]
+    async fn wait_slow(&mut self, _message: Slow) {
+        SLOW_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
+        SLOW_RELEASE.notified().await;
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn crash(_state: &mut CrashActor, _message: Crash) {
-    let _ = _message.0.send(());
-    panic!("intentional actor exit for closed-mailbox test");
+impl CrashActor {
+    #[actor_framework::actor_handler]
+    async fn crash(&mut self, _message: Crash) {
+        let _ = _message.0.send(());
+        panic!("intentional actor exit for closed-mailbox test");
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn block_until_released(_state: &mut ShutdownActor, _message: BlockUntilReleased) {
-    SHUTDOWN_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
-    SHUTDOWN_RELEASE.notified().await;
+impl ShutdownActor {
+    #[actor_framework::actor_handler]
+    async fn block_until_released(&mut self, _message: BlockUntilReleased) {
+        SHUTDOWN_STARTED.store(true, std::sync::atomic::Ordering::SeqCst);
+        SHUTDOWN_RELEASE.notified().await;
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn record_partial(_state: &mut PartialRecorder, event: PartialEvent) {
-    PARTIAL_FIRST.lock().await.push(event);
-    PARTIAL_FIRST_DELIVERED.notify_one();
+impl PartialRecorder {
+    #[actor_framework::actor_handler]
+    async fn record_partial(&mut self, event: PartialEvent) {
+        PARTIAL_FIRST.lock().await.push(event);
+        PARTIAL_FIRST_DELIVERED.notify_one();
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn close_partial(_state: &mut PartialClosed, message: ClosePartial) {
-    let _ = message.0.send(());
-    panic!("intentional actor exit for partial-publish test");
+impl PartialClosed {
+    #[actor_framework::actor_handler]
+    async fn close_partial(&mut self, message: ClosePartial) {
+        let _ = message.0.send(());
+        panic!("intentional actor exit for partial-publish test");
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn discard_partial(_state: &mut PartialClosed, _event: PartialEvent) {}
-
-#[actor_framework::actor_handler]
-async fn record_partial_last(_state: &mut PartialRecorder, event: PartialEvent) {
-    PARTIAL_LAST.lock().await.push(event);
-    PARTIAL_LAST_DELIVERED.notify_one();
+impl PartialClosed {
+    #[actor_framework::actor_handler]
+    async fn discard_partial(&mut self, _event: PartialEvent) {}
 }
 
-#[actor_framework::actor_handler]
-async fn queue_message(_state: &mut QueueState, _message: QueueMessage) {
-    QUEUE_STARTED.notify_one();
-    QUEUE_RELEASE.notified().await;
-    QUEUE_COMPLETED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+impl PartialRecorder {
+    #[actor_framework::actor_handler]
+    async fn record_partial_last(&mut self, event: PartialEvent) {
+        PARTIAL_LAST.lock().await.push(event);
+        PARTIAL_LAST_DELIVERED.notify_one();
+    }
+}
+
+impl QueueState {
+    #[actor_framework::actor_handler]
+    async fn queue_message(&mut self, _message: QueueMessage) {
+        QUEUE_STARTED.notify_one();
+        QUEUE_RELEASE.notified().await;
+        QUEUE_COMPLETED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 static FIRST: std::sync::LazyLock<Arc<Mutex<Vec<u32>>>> = std::sync::LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
@@ -142,7 +165,7 @@ static QUEUE_COMPLETED: std::sync::atomic::AtomicUsize = std::sync::atomic::Atom
 actor! {
     pub actor counter: Counter {
         mailbox_capacity: 2;
-        commands { Amount => increment; }
+        commands { Amount => Counter::increment; }
         events { Unobserved => []; }
     };
 }
@@ -151,7 +174,7 @@ actor! {
     pub actor first_recorder: Recorder {
         mailbox_capacity: 2;
         commands {}
-        events { Changed => record; }
+        events { Changed => Recorder::record; }
     };
 }
 
@@ -159,14 +182,14 @@ actor! {
     pub actor second_recorder: Recorder {
         mailbox_capacity: 2;
         commands {}
-        events { Changed => record; }
+        events { Changed => Recorder::record; }
     };
 }
 
 actor! {
     pub actor crash_actor: CrashActor {
         mailbox_capacity: 1;
-        commands { Crash => crash; }
+        commands { Crash => CrashActor::crash; }
         events {}
     };
 }
@@ -174,7 +197,7 @@ actor! {
 actor! {
     pub actor slow_actor: SlowActor {
         mailbox_capacity: 1;
-        commands { Slow => wait_slow; }
+        commands { Slow => SlowActor::wait_slow; }
         events {}
     };
 }
@@ -182,7 +205,7 @@ actor! {
 actor! {
     pub actor reset_actor: ResetActor {
         mailbox_capacity: 2;
-        commands { Reset => reset; }
+        commands { Reset => ResetActor::reset; }
         events {}
     };
 }
@@ -190,7 +213,7 @@ actor! {
 actor! {
     pub actor shutdown_actor: ShutdownActor {
         mailbox_capacity: 2;
-        commands { BlockUntilReleased => block_until_released; }
+        commands { BlockUntilReleased => ShutdownActor::block_until_released; }
         events {}
     };
 }
@@ -199,15 +222,15 @@ actor! {
     pub actor partial_first: PartialRecorder {
         mailbox_capacity: 1;
         commands {}
-        events { PartialEvent => record_partial; }
+        events { PartialEvent => PartialRecorder::record_partial; }
     };
 }
 
 actor! {
     pub actor partial_closed: PartialClosed {
         mailbox_capacity: 1;
-        commands { ClosePartial => close_partial; }
-        events { PartialEvent => discard_partial; }
+        commands { ClosePartial => PartialClosed::close_partial; }
+        events { PartialEvent => PartialClosed::discard_partial; }
     };
 }
 
@@ -215,14 +238,14 @@ actor! {
     pub actor partial_last: PartialRecorder {
         mailbox_capacity: 1;
         commands {}
-        events { PartialEvent => record_partial_last; }
+        events { PartialEvent => PartialRecorder::record_partial_last; }
     };
 }
 
 actor! {
     pub actor queue: QueueState {
         mailbox_capacity: 2;
-        commands { QueueMessage => queue_message; }
+        commands { QueueMessage => QueueState::queue_message; }
         events {}
     };
 }

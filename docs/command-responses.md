@@ -10,8 +10,9 @@ struct GetCount;
 
 The attribute value is parsed as a Rust type (not a string) and generates the
 `Command` trait implementation with its associated `Response`. A route remains
-`commands { GetCount => get_count; }`; the handler's async output must match the
-declared type.
+`commands { GetCount => Counter::get_count; }`; the handler's async output
+must match the declared type. The handler is an async inherent method with
+`&mut self` and `#[actor_handler]`.
 
 Tokio systems support `request(command).await`. A `Result<T, E>` handler gives
 `Result<Result<T, E>, RequestError>` to its caller, separating handler rejection
