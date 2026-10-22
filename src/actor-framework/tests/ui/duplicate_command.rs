@@ -3,15 +3,19 @@ use actor_framework::{actor, actor_system};
 struct Command;
 struct State;
 
+impl State {
 #[actor_framework::actor_handler]
-async fn first(_: &App, _: &mut State, _: Command) {}
+async fn first(&mut self, _: Command) {}
+}
+impl State {
 #[actor_framework::actor_handler]
-async fn second(_: &App, _: &mut State, _: Command) {}
+async fn second(&mut self, _: Command) {}
+}
 
 actor! {
     pub actor first_actor: State {
         mailbox_capacity: 1;
-        commands { Command => first; }
+        commands { Command => State::first; }
         events {}
     };
 }
@@ -19,7 +23,7 @@ actor! {
 actor! {
     pub actor second_actor: State {
         mailbox_capacity: 1;
-        commands { Command => second; }
+        commands { Command => State::second; }
         events {}
     };
 }

@@ -1,0 +1,81 @@
+error: actor_handler requires an inherent async method with `&mut self`; free functions are no longer supported
+ --> tests/ui/unsupported_method_handlers.rs:6:1
+  |
+6 | async fn free_function(_: &mut State, _: Message) {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: actor_handler requires an inherent async method with `&mut self`; free functions are no longer supported
+  --> tests/ui/unsupported_method_handlers.rs:10:5
+   |
+10 |     async fn shared(&self, _: Message) {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: actor_handler requires an inherent async method with `&mut self`; free functions are no longer supported
+  --> tests/ui/unsupported_method_handlers.rs:12:5
+   |
+12 |     async fn owned(self, _: Message) {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: actor_handler requires an inherent async method with `&mut self`; free functions are no longer supported
+  --> tests/ui/unsupported_method_handlers.rs:14:5
+   |
+14 |     async fn associated(_: Message) {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `actor_handler` requires an async method
+  --> tests/ui/unsupported_method_handlers.rs:16:5
+   |
+16 |     fn synchronous(&mut self, _: Message) {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: actor handler methods must not be generic; put generics on the inherent impl
+  --> tests/ui/unsupported_method_handlers.rs:18:21
+   |
+18 |     async fn generic<T>(&mut self, _: T) {}
+   |                     ^^^
+
+error: expected `&mut self`, typed ActorAddress contexts, and exactly one message parameter
+  --> tests/ui/unsupported_method_handlers.rs:20:20
+   |
+20 |     async fn extra(&mut self, _: Message, _: Message) {}
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: actor_handler requires an inherent method with a body; trait methods are unsupported
+  --> tests/ui/unsupported_method_handlers.rs:25:5
+   |
+25 |     async fn required(&mut self, _: Message);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0449]: visibility qualifiers are not permitted here
+  --> tests/ui/unsupported_method_handlers.rs:28:5
+   |
+28 |     #[actor_handler]
+   |     ^^^^^^^^^^^^^^^^ help: remove the qualifier
+   |
+   = note: trait items always share the visibility of their trait
+   = note: this error originates in the attribute macro `actor_handler` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0449]: visibility qualifiers are not permitted here
+  --> tests/ui/unsupported_method_handlers.rs:33:5
+   |
+33 |     #[actor_handler]
+   |     ^^^^^^^^^^^^^^^^ help: remove the qualifier
+   |
+   = note: trait items always share the visibility of their trait
+   = note: this error originates in the attribute macro `actor_handler` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0438]: const `__actor_handler_request_capacity_implemented` is not a member of trait `Implementation`
+  --> tests/ui/unsupported_method_handlers.rs:33:5
+   |
+33 |     #[actor_handler]
+   |     ^^^^^^^^^^^^^^^^ not a member of trait `Implementation`
+   |
+   = note: this error originates in the attribute macro `actor_handler` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0407]: method `__actor_handler_implemented` is not a member of trait `Implementation`
+  --> tests/ui/unsupported_method_handlers.rs:33:5
+   |
+33 |     #[actor_handler]
+   |     ^^^^^^^^^^^^^^^^ not a member of trait `Implementation`
+   |
+   = note: this error originates in the attribute macro `actor_handler` (in Nightly builds, run with -Z macro-backtrace for more info)

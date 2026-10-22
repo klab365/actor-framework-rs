@@ -22,31 +22,38 @@ struct Changed(usize);
 struct Counter;
 struct Logger;
 
-#[actor_framework::actor_handler(request_capacity = 2)]
-async fn add(
-    stored: ActorAddress<ActorCommand<Store>>,
-    events: ActorAddress<ActorEvent<Changed>>,
-    _actor: &mut Counter,
-    message: Add,
-) {
-    stored.post(Store(message.0)).await.unwrap();
-    events.publish(Changed(message.0)).await.unwrap();
+impl Counter {
+    #[actor_framework::actor_handler(request_capacity = 2)]
+    async fn add(
+        &mut self,
+        stored: ActorAddress<ActorCommand<Store>>,
+        events: ActorAddress<ActorEvent<Changed>>,
+
+        message: Add,
+    ) {
+        stored.post(Store(message.0)).await.unwrap();
+        events.publish(Changed(message.0)).await.unwrap();
+    }
 }
 
-#[actor_framework::actor_handler]
-async fn log(_actor: &mut Logger, event: Changed) {
-    OBSERVED.fetch_add(event.0, Ordering::SeqCst);
+impl Logger {
+    #[actor_framework::actor_handler]
+    async fn log(&mut self, event: Changed) {
+        OBSERVED.fetch_add(event.0, Ordering::SeqCst);
+    }
 }
 
-#[actor_framework::actor_handler(request_capacity = 2)]
-async fn store(_actor: &mut Logger, message: Store) {
-    STORED.fetch_add(message.0, Ordering::SeqCst);
+impl Logger {
+    #[actor_framework::actor_handler(request_capacity = 2)]
+    async fn store(&mut self, message: Store) {
+        STORED.fetch_add(message.0, Ordering::SeqCst);
+    }
 }
 
 actor! {
     actor counter: Counter {
         mailbox_capacity: 1;
-        commands { Add => add; }
+        commands { Add => Counter::add; }
         events {}
     };
 }
@@ -54,8 +61,8 @@ actor! {
 actor! {
     actor logger: Logger {
         mailbox_capacity: 1;
-        commands { Store => store; }
-        events { Changed => log; }
+        commands { Store => Logger::store; }
+        events { Changed => Logger::log; }
     };
 }
 

@@ -5,16 +5,18 @@ Handlers declare the routes they need using typed `ActorAddress` parameters:
 ```rust,ignore
 use actor_framework::{ActorAddress, ActorCommand, ActorEvent, actor_handler};
 
-#[actor_handler]
-async fn count_press(
-    store: ActorAddress<ActorCommand<StoreTotal>>,
-    events: ActorAddress<ActorEvent<PressObserved>>,
-    counter: &mut Counter,
-    _message: ButtonPressed,
-) {
-    counter.total += 1;
-    store.post(StoreTotal(counter.total)).await?;
-    events.publish(PressObserved(counter.total)).await?;
+impl Counter {
+    #[actor_handler]
+    async fn count_press(
+        &mut self,
+        store: ActorAddress<ActorCommand<StoreTotal>>,
+        events: ActorAddress<ActorEvent<PressObserved>>,
+        _message: ButtonPressed,
+    ) {
+        self.total += 1;
+        store.post(StoreTotal(self.total)).await.expect("store route open");
+        events.publish(PressObserved(self.total)).await.expect("event route open");
+    }
 }
 ```
 

@@ -22,24 +22,35 @@ fn capacity() -> usize {
     CAPACITY.with(Cell::get)
 }
 
-#[actor_framework::actor_handler]
-pub async fn add(state: &mut Counter, command: Add) {
-    state.0.set(state.0.get() + command.0);
-    // Shutdown closes every destination: outgoing routes may already be closed.
+impl Counter {
+    #[actor_framework::actor_handler]
+    pub async fn add(
+        &mut self,
+        events: actor_framework::ActorAddress<actor_framework::ActorEvent<Changed>>,
+        command: Add,
+    ) {
+        self.0.set(self.0.get() + command.0);
+        // Shutdown closes every destination: outgoing routes may already be closed.
+        let _ = events.publish(Changed(self.0.get())).await;
+    }
 }
-#[actor_framework::actor_handler]
-pub async fn read_total(state: &mut Counter, _: ReadTotal) -> Result<u32, &'static str> {
-    Ok(state.0.get())
+impl Counter {
+    #[actor_framework::actor_handler]
+    pub async fn read_total(&mut self, _: ReadTotal) -> Result<u32, &'static str> {
+        Ok(self.0.get())
+    }
 }
-#[actor_framework::actor_handler]
-pub async fn observe(state: &mut Observer, event: Changed) {
-    state.0.send_route(event.0).await.unwrap();
+impl Observer {
+    #[actor_framework::actor_handler]
+    pub async fn observe(&mut self, event: Changed) {
+        self.0.send_route(event.0).await.unwrap();
+    }
 }
 
 actor! {
     pub actor counter: Counter {
         mailbox_capacity: capacity();
-        commands { Add => add;, ReadTotal => read_total; }
+        commands { Add => Counter::add;, ReadTotal => Counter::read_total; }
         events { Unobserved => []; }
     };
 }
@@ -48,7 +59,7 @@ actor! {
     pub actor first: Observer {
         mailbox_capacity: 1;
         commands {}
-        events { Changed => observe; }
+        events { Changed => Observer::observe; }
     };
 }
 
@@ -56,7 +67,7 @@ actor! {
     pub actor second: Observer {
         mailbox_capacity: 1;
         commands {}
-        events { Changed => observe; }
+        events { Changed => Observer::observe; }
     };
 }
 actor_system! { pub struct App { actors: [counter, first, second]; } }
@@ -90,6 +101,7 @@ async fn actors_route_builder_backpressure_and_shutdown() {
     assert!(matches!(app.try_send(Add(99)), Err(TrySendError::Full(Add(99)))));
     app.send(Add(3)).await.unwrap();
     assert_eq!(app.request(ReadTotal).await, Ok(Ok(5)));
+    // Method-injected typed event routing publishes each accepted Add total.
     for receiver in [&mut first_rx, &mut second_rx] {
         assert_eq!(receiver.receive().await, Some(2));
         assert_eq!(receiver.receive().await, Some(5));

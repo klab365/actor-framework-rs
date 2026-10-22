@@ -31,18 +31,24 @@ pub struct SensorActor {
     adc: Adc,
 }
 
-async fn get_analog_input(actor: &mut SensorActor, command: GetAnalogInput) {
-    let _value = actor.adc.read(command.channel).await;
+impl SensorActor {
+    #[actor_framework::actor_handler]
+    async fn get_analog_input(&mut self, command: GetAnalogInput) {
+        let _value = self.adc.read(command.channel).await;
+    }
 }
 
-async fn record_analog_value(actor: &mut TelemetryActor, event: AnalogValueChanged) {
-    actor.record(event).await;
+impl TelemetryActor {
+    #[actor_framework::actor_handler]
+    async fn record_analog_value(&mut self, event: AnalogValueChanged) {
+        self.record(event).await;
+    }
 }
 
 actor! {
     pub actor sensor: SensorActor {
         mailbox_capacity: 8;
-        commands { GetAnalogInput => get_analog_input; }
+        commands { GetAnalogInput => SensorActor::get_analog_input; }
         events {}
     };
 }
@@ -51,7 +57,7 @@ actor! {
     pub actor telemetry: TelemetryActor {
         mailbox_capacity: 4;
         commands {}
-        events { AnalogValueChanged => record_analog_value; }
+        events { AnalogValueChanged => TelemetryActor::record_analog_value; }
     };
 }
 
@@ -80,7 +86,7 @@ Das Beispiel zeigt die implementierte API-Syntax; konkrete App-Typen und Nachric
 
 ### `actor!`
 
-Jeder `actor!`-Aufruf deklariert genau einen Actor mit `actor: name: State { … };`. Das Manifest ist die einzige Quelle der Wahrheit für dessen Routen, State-Typ, explizite Mailbox-Kapazität und freie Handler-Funktionen. Mehrere Actoren werden ausschließlich über die Manifestliste in `actor_system!` komponiert. Die [Migration](actor-module-migration.md) beschreibt die Umstellung. Ein Handler hat die Form `async fn handler(state: &mut ActorState, message: Message) -> ()` und wird im Manifest als `Message => handler` eingetragen. Handler-Kommunikation wird separat entworfen.
+Jeder `actor!`-Aufruf deklariert genau einen Actor mit `actor: name: State { … };`. Das Manifest ist die einzige Quelle der Wahrheit für dessen Routen, State-Typ, explizite Mailbox-Kapazität und Handler-Methoden. Mehrere Actoren werden ausschließlich über die Manifestliste in `actor_system!` komponiert. Die [Migration](actor-module-migration.md) beschreibt die Umstellung. Ein Handler hat die Form `async fn handler(&mut self, message: Message) -> ()` im inherent `impl ActorState` und wird im Manifest als `Message => ActorState::handler` eingetragen. Handler-Kommunikation wird separat entworfen.
 
 Das Makro erzeugt intern pro Actor einen Nachrichten-Enum und eine bounded Mailbox. Der Enum ist Implementierungsdetail: Nutzer müssen ihn nicht schreiben oder benennen. Die Manifest-Einträge liefern die Zuordnung der öffentlichen Nachrichtentypen zu den internen Mailbox-Varianten und Handlern.
 

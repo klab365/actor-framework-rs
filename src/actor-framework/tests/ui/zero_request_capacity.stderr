@@ -1,5 +1,11 @@
 error[E0080]: evaluation panicked: request_capacity must be greater than zero
- --> tests/ui/zero_request_capacity.rs:1:1
+ --> tests/ui/zero_request_capacity.rs:3:1
   |
-1 | #[actor_framework::actor_handler(request_capacity = 0)]
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here
+3 | #[actor_framework::actor_handler(request_capacity = 0)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `WorkerState::__actor_handler_request_capacity_invalid` failed here
+
+note: erroneous constant encountered
+ --> tests/ui/zero_request_capacity.rs:8:25
+  |
+8 | fn main() { let _: [(); WorkerState::__actor_handler_request_capacity_invalid] = []; }
+  |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

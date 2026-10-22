@@ -143,6 +143,15 @@ impl Parse for RouteDef {
         if input.peek(Token![;]) {
             input.parse::<Token![;]>()?;
         }
+        if let Some(path) = &handler {
+            let path: &Path = path;
+            if path.segments.len() < 2 || !matches!(path.segments.last().unwrap().arguments, syn::PathArguments::None) {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "expected an inherent method path such as `Counter::add` (no method generics)",
+                ));
+            }
+        }
         Ok(Self { message, handler })
     }
 }
@@ -196,7 +205,11 @@ pub fn derive_actor_command(input: TokenStream) -> TokenStream {
     .into()
 }
 
-/// Adapt a reusable async handler to typed actor route capabilities.
+/// Adapt an async inherent method with `&mut self` to typed actor route capabilities.
+///
+/// Methods must take exactly one message, plus optional typed route contexts.
+/// Method generics are unsupported; generic inherent impls are supported.
+/// Reference the handler as `State::method` in the actor manifest.
 ///
 /// Context parameters use `ActorAddress<ActorCommand<Message>>` or
 /// `ActorAddress<ActorEvent<Event>>`. The generated helper binds the concrete
@@ -211,9 +224,40 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
             Err(error) => return error.into_compile_error().into(),
         }
     };
-    let mut function = parse_macro_input!(input as syn::ItemFn);
+    let mut function = match syn::parse::<syn::ImplItemFn>(input.clone()) {
+        Ok(method) => method,
+        Err(error) => {
+            if let Ok(method) = syn::parse::<syn::TraitItemFn>(input) {
+                return syn::Error::new_spanned(
+                    &method.sig,
+                    "actor_handler requires an inherent method with a body; trait methods are unsupported",
+                )
+                .into_compile_error()
+                .into();
+            }
+            return error.into_compile_error().into();
+        }
+    };
+    if !function.sig.generics.params.is_empty() {
+        return syn::Error::new_spanned(
+            &function.sig.generics,
+            "actor handler methods must not be generic; put generics on the inherent impl",
+        )
+        .into_compile_error()
+        .into();
+    }
+    match function.sig.inputs.first() {
+        Some(syn::FnArg::Receiver(receiver))
+            if receiver.reference.is_some() && receiver.mutability.is_some() && receiver.colon_token.is_none() => {}
+        _ => return syn::Error::new_spanned(
+            &function.sig,
+            "actor_handler requires an inherent async method with `&mut self`; free functions are no longer supported",
+        )
+        .into_compile_error()
+        .into(),
+    }
     if function.sig.asyncness.is_none() {
-        return syn::Error::new_spanned(&function.sig, "`actor_handler` requires an async function")
+        return syn::Error::new_spanned(&function.sig, "`actor_handler` requires an async method")
             .into_compile_error()
             .into();
     }
@@ -222,9 +266,7 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
     let mut contexts = Vec::new();
     for (index, argument) in function.sig.inputs.iter_mut().enumerate() {
         let syn::FnArg::Typed(argument) = argument else {
-            return syn::Error::new_spanned(argument, "actor handlers must be free functions")
-                .into_compile_error()
-                .into();
+            continue;
         };
         let syn::Type::Path(path) = argument.ty.as_ref() else {
             continue;
@@ -278,6 +320,19 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
         *argument.ty = syn::parse_quote!(::actor_framework::actor_address::ActorAddress<'_, #marker, #router>);
         contexts.push((index, kind, message, marker));
     }
+    if function.sig.inputs.len() != contexts.len() + 2 {
+        return syn::Error::new_spanned(
+            &function.sig.inputs,
+            "expected `&mut self`, typed ActorAddress contexts, and exactly one message parameter",
+        )
+        .into_compile_error()
+        .into();
+    }
+    if function.sig.unsafety.is_some() || function.sig.abi.is_some() || function.sig.variadic.is_some() {
+        return syn::Error::new_spanned(&function.sig, "actor handler methods must use a safe Rust signature")
+            .into_compile_error()
+            .into();
+    }
     if !contexts.is_empty() {
         function.sig.generics.params.push(syn::parse_quote!(#router));
         for (_, kind, message, _) in &contexts {
@@ -298,11 +353,19 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
     let name = function.sig.ident.clone();
     let helper = format_ident!("__actor_handler_{}", name);
     let capacity_const = format_ident!("__actor_handler_request_capacity_{}", name);
+    // Explicit visibility is legal only in inherent impls, not in traits or
+    // trait impls. Preserve private methods with `pub(self)`.
+    let visibility = match &function.vis {
+        syn::Visibility::Inherited => syn::parse_quote!(pub(self)),
+        visibility => visibility.clone(),
+    };
     let capacity_item = quote!(
-        const _: () = assert!(#request_capacity > 0, "request_capacity must be greater than zero");
-        #[doc(hidden)] #[allow(non_upper_case_globals)] const #capacity_const: usize = #request_capacity;
+        #[doc(hidden)] #[allow(non_upper_case_globals)]
+        #visibility const #capacity_const: usize = {
+            assert!(#request_capacity > 0, "request_capacity must be greater than zero");
+            #request_capacity
+        };
     );
-    let visibility = function.vis.clone();
     let mut helper_args = Vec::new();
     let call_args: Vec<_> = function
         .sig
@@ -318,7 +381,8 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
                 helper_args.push(quote!(#ident: #ty));
                 quote!(#ident)
             } else {
-                unreachable!()
+                helper_args.push(quote!(__actor_handler_state: &mut Self));
+                quote!(__actor_handler_state)
             }
         })
         .collect();
@@ -344,7 +408,7 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
         ) #output
         #helper_where
         {
-            #name(#(#call_args),*).await
+            Self::#name(#(#call_args),*).await
         }
     }
     .into()
@@ -467,7 +531,13 @@ fn handler_adapter(path: &Path) -> proc_macro2::TokenStream {
 }
 
 fn module_handler(path: &Path) -> proc_macro2::TokenStream {
-    if path.leading_colon.is_none() && path.segments.len() == 1 {
+    if path.leading_colon.is_none()
+        && path.segments.len() == 2
+        && path
+            .segments
+            .first()
+            .is_some_and(|s| s.ident != "crate" && s.ident != "self" && s.ident != "super")
+    {
         quote!($crate::#path)
     } else {
         quote!(#path)

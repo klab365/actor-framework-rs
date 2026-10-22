@@ -1,0 +1,5 @@
+error: expected an inherent method path such as `Counter::add` (no method generics)
+ --> tests/ui/free_handler_path.rs:7:31
+  |
+7 |         commands { Message => handle; }
+  |                               ^^^^^^

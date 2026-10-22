@@ -29,7 +29,7 @@ reusable generic adapter; each runtime binds its private router at composition
 time without a dynamic registry.
 
 `ActorSendRoute`, `ActorPublishRoute`, `SendError`, and `TrySendError` are runtime-neutral route contracts. User handlers remain
-free async functions; `#[actor_handler]` generates the generic adapter that
+async inherent methods with `&mut self`; `#[actor_handler]` generates the generic adapter that
 Tokio, WASM, and Embassy bind to their generated routers. This is static
 dispatch, not a dynamic actor abstraction. Manifests still define command
 uniqueness and event fan-out.
