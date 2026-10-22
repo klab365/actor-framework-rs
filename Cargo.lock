@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "actor-framework-macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "actor-framework-module-app-example"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actor-framework-module-example",
  "actor-framework-rs",
@@ -22,14 +22,14 @@ dependencies = [
 
 [[package]]
 name = "actor-framework-module-example"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actor-framework-rs",
 ]
 
 [[package]]
 name = "actor-framework-rs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actor-framework-macros",
  "async-channel",
