@@ -1,9 +1,9 @@
-//! Statically routed, typed Embassy actor contexts.
+//! Statically routed, typed actor contexts.
 //!
 //! The `actor_handler` attribute lets a handler declare route capabilities as
-//! `ActorAddress<ActorCommand<M>>` or `ActorAddress<ActorEvent<E>>`. The Embassy
-//! system macro binds the concrete, generated router type at the composition
-//! site. No registry, allocation, serialization, or unsafe code is used.
+//! `ActorAddress<ActorCommand<M>>` or `ActorAddress<ActorEvent<E>>`. The selected
+//! system backend binds the concrete generated router type at composition time.
+//! No dynamic registry or message-type lookup is used.
 
 use core::marker::PhantomData;
 

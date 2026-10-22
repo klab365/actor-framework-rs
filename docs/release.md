@@ -17,10 +17,16 @@ Add a repository Actions secret named `CRATESIO_TOKEN` containing a crates.io AP
 mise run check-format
 mise run check
 mise run check-tokio
+mise run check-runtime-feature-matrix
+mise run test-core
+mise run test-embassy
+mise run test-wasm
+mise run check-wasm
+mise run check-wasm-example
 mise run lint
 mise run test
 mise run docs
 mise run publish-dry-run
 ```
 
-`mise run publish-dry-run` packages and verifies publishability without uploading. Never run `cargo publish` manually as part of routine validation.
+`mise run publish-dry-run` packages and verifies publishability without uploading. The WASM checks require the `wasm32-unknown-unknown` target; the executable WASM tests additionally require Node as configured in `mise.toml`. `mise run check-embassy-microbit-v2` cross-compiles the hardware example when its Cortex-M target is installed, but does not validate a physical device. Never run `cargo publish` manually as part of routine validation.

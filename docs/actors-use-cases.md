@@ -1,42 +1,70 @@
-# Wann sind Actors sinnvoll?
+# When Are Actors Useful?
 
-Das Actor-Modell ist ein Architekturmuster für nebenläufige Systeme: Jeder Actor besitzt seinen eigenen Zustand, verarbeitet Nachrichten nacheinander und kommuniziert mit anderen Actors über Nachrichten statt über gemeinsam veränderlichen Zustand. Es ist kein Selbstzweck und nicht automatisch schneller oder einfacher als normale Funktionen.
+This brief guide complements the [installation and getting-started guide](../README.md);
+it does not describe additional framework features.
 
-## Actors passen gut, wenn …
+The actor model is a concurrency architecture in which each actor owns its
+state, processes messages sequentially, and communicates through messages
+rather than shared mutable state. It is not an end in itself and is not
+automatically faster or simpler than ordinary functions.
 
-- **Zustand klar abgegrenzt ist.** Eine Komponente verwaltet beispielsweise eine Verbindung, einen Gerätekanal oder eine Session. Andere Teile des Programms greifen nicht direkt auf ihren veränderlichen Zustand zu, sondern senden Befehle.
-- **Viele unabhängige Abläufe gleichzeitig aktiv sind.** Verbindungen, Sessions oder Geräte können jeweils unabhängig Nachrichten entgegennehmen und weiterarbeiten.
-- **Ereignisse und Befehle asynchron eintreffen.** Eingaben aus Netzwerk, UI, Sensoren, Timer oder Interrupt-nahen Queues lassen sich als Nachrichten modellieren.
-- **Komponenten entkoppelt werden sollen.** Sender müssen die interne Implementierung des Empfängers nicht kennen. Austauschbare Transport- und Laufzeitadapter können dieselben fachlichen Nachrichten verarbeiten.
-- **Fehler und Lebenszyklen isoliert behandelt werden sollen.** Ein Actor kann beendet, neu gestartet oder kontrolliert heruntergefahren werden, ohne dass andere Komponenten direkten Zugriff auf seinen Zustand haben.
-- **Backpressure wichtig ist.** Begrenzte Mailboxen machen sichtbar, wenn Verbraucher nicht mit der Nachrichtenrate Schritt halten, sofern das Framework Überlauf- und Sendeverhalten explizit festlegt.
+## Actors are a good fit when…
 
-## Typische Einsatzfälle
+- **State has a clear owner.** A component manages a connection, device channel,
+  or session. Other components send commands instead of directly mutating its
+  state.
+- **Many independent workflows are active.** Connections, sessions, or devices
+  can receive messages and make progress independently.
+- **Events and commands arrive asynchronously.** Network, UI, sensor, timer, or
+  interrupt-adjacent inputs can be modeled as messages.
+- **Components should be decoupled.** Senders need not know the receiver's
+  implementation. Runtime adapters can process the same domain messages.
+- **Failure and lifecycle boundaries matter.** A component may stop or shut down
+  independently, while other components do not access its state directly.
+- **Backpressure matters.** Bounded mailboxes make it visible when consumers
+  cannot keep up, provided overflow and send behavior are explicit.
 
-| Bereich | Mögliche Actors | Warum das Modell hilft |
+## Typical use cases
+
+| Area | Possible actors | Why the model can help |
 | --- | --- | --- |
-| Netzwerkserver | Actor pro Verbindung oder Session | Verbindungszustand bleibt lokal; Nachrichten serialisieren Zustandsänderungen. |
-| Geräte und IoT | Actor pro Gerät, Sensor oder Buskanal | Unabhängige Geräteabläufe und Ereignisverarbeitung lassen sich isolieren. |
-| UI und Anwendungen | Actor pro Dokument, Fenster oder Hintergrundaufgabe | Lange Aufgaben und UI-Ereignisse können über Nachrichten koordiniert werden. |
-| Echtzeitnahe Systeme | Actor pro Steuerungsfunktion oder Ressource | Zuständigkeiten und Nachrichtenflüsse sind explizit; für harte Echtzeit gelten zusätzliche Anforderungen. |
-| Verteilte Systeme | Actor pro Partition, Sitzung oder Service-Instanz | Das lokale Nachrichtenmodell kann eine Grundlage für spätere Verteilung sein, ersetzt aber kein verteiltes Protokoll. |
+| Network servers | One actor per connection or session | Connection state remains local; messages serialize state changes. |
+| Devices and IoT | One actor per device, sensor, or bus channel | Independent device workflows and event processing can be isolated. |
+| UI and applications | One actor per document, window, or background task | Long-running work and UI events can be coordinated through messages. |
+| Near-real-time systems | One actor per control function or resource | Responsibilities and message flows are explicit; hard real-time needs additional guarantees. |
+| Distributed systems | One actor per partition, session, or service instance | The local messaging model may be a foundation for distribution, but is not a distributed protocol. |
 
-## Wann Actors eher nicht sinnvoll sind
+## When actors are probably not a good fit
 
-- Für einfache, synchrone Berechnungen ohne geteilten Zustand: Ein Funktionsaufruf ist meist klarer und günstiger.
-- Wenn zwei Schritte unmittelbar aufeinander warten und keine unabhängige Arbeit möglich ist: Nachrichten und Mailboxen schaffen dann unnötige Komplexität.
-- Wenn Daten groß und unveränderlich sind und problemlos geteilt werden können: Kopieren oder Weiterreichen vieler Nachrichten kann teuer sein.
-- Wenn gemeinsame Transaktionen über mehrere Zustände erforderlich sind: Actor-Grenzen machen atomare Änderungen nicht automatisch möglich.
-- Wenn extrem niedrige Latenz oder deterministische Ausführung gefordert ist, ohne dass Mailboxen, Scheduler und Speicherverhalten darauf ausgelegt sind.
+- For simple synchronous computations without shared state, a function call is
+  usually clearer and cheaper.
+- If two steps must wait for each other immediately and no independent work is
+  possible, messages and mailboxes add unnecessary complexity.
+- If data is large, immutable, and easy to share, copying or forwarding many
+  messages may be expensive.
+- Actor boundaries do not make transactions across multiple states atomic.
+- Extremely low latency or deterministic execution requires mailboxes, the
+  scheduler, and memory behavior to be designed for those requirements.
 
-## Was Actors nicht automatisch lösen
+## What actors do not solve automatically
 
-Actors verhindern nicht alle Fehler: Nachrichten können verspätet eintreffen, Sender können scheitern, Mailboxen können voll werden und ein Empfänger kann dauerhaft überlastet sein. Neustartstrategien, Nachrichtenreihenfolge, Zustellgarantien, Timeout-Verhalten und Shutdown müssen bewusst definiert werden. Insbesondere bedeutet eine erfolgreiche Zustellung an eine Mailbox nicht zwingend, dass die Nachricht fachlich verarbeitet oder dauerhaft gespeichert wurde.
+Messages can be delayed, sends can fail, mailboxes can fill, and consumers can
+remain overloaded. Restart strategies, ordering, delivery guarantees, timeout
+behavior, and shutdown need explicit design. Successful mailbox delivery does
+not necessarily mean that a message was processed or durably stored.
 
-## Bedeutung für mehrere Rust-Laufzeiten
+## Implications across Rust runtimes
 
-Ein Framework für Tokio/std, WebAssembly und Embassy sollte das Actor-Modell von der Ausführung trennen. Fachliche Actor-Logik und Nachrichten sollten möglichst laufzeitneutral bleiben; Scheduling, Timer, Synchronisation und Mailbox-Transport können je Plattform variieren. Tokio/std eignet sich für allgemeine asynchrone Server und Anwendungen, WASM für Browser- oder eingebettete Web-Ausführung mit deren Einschränkungen, Embassy für ressourcenknappe Embedded-Systeme. Ein gemeinsames API sollte dabei nicht voraussetzen, dass jede Plattform Threads, `std`, dynamische Allokation oder dieselben Async-Primitiven unterstützt.
+A framework targeting Tokio/std, WebAssembly, and Embassy should separate the
+actor model from its execution. Domain logic and messages can remain runtime
+neutral, while scheduling, timers, synchronization, and mailbox transport vary
+by platform. Tokio/std suits general-purpose servers and applications; WASM
+runs under its host constraints; Embassy targets resource-constrained embedded
+systems. A shared API should not assume that every platform has threads, `std`,
+dynamic allocation, or the same async primitives.
 
-## Faustregel
+## Rule of thumb
 
-Actors lohnen sich, wenn eine Komponente **eigenen Zustand besitzt**, **unabhängig Nachrichten verarbeitet** und eine **klare Nebenläufigkeits- oder Isolationsgrenze** bildet. Gibt es diese Grenze nicht, zunächst bei gewöhnlichen Funktionen und Datenstrukturen bleiben.
+Use actors when a component **owns state**, **processes messages independently**,
+and forms a **clear concurrency or isolation boundary**. Otherwise, begin with
+ordinary functions and data structures.

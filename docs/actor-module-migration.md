@@ -1,6 +1,10 @@
-# `actor!` migration
+# Current actor declaration syntax
 
-## Method handlers (issue #30)
+This guide records the supported syntax (including changes from the former
+multi-actor manifest format). Start with the [README](../README.md) for a
+minimal application example.
+
+## Method handlers
 
 Free-function `#[actor_handler]` handlers are no longer supported. Move
 `async fn add(state: &mut Counter, message: Add)` into `impl Counter`, replace
@@ -21,15 +25,12 @@ bounds; it does not box futures or require an executor. Command response types
 and unit-returning event handlers retain their existing contracts. Mailbox
 capacity, backpressure, and Embassy `request_capacity` are unchanged.
 
-Only async inherent methods with `&mut self` and exactly one message are
-supported. Shared/owned receivers, associated functions, trait methods and
-generic methods are unsupported. Trait methods are rejected by Rust's explicit
-visibility diagnostics on the generated associated items; the attribute cannot
-inspect the surrounding impl. Keep generics and bounds on the inherent impl:
-`impl<T: ...> Counter<T>`. Use a concrete manifest state `Counter<u32>` and
-method path `Counter::<u32>::add` (turbofish required). Generic actor manifests
-and generic method arguments are not supported. Concrete generic types must
-still satisfy the chosen backend's normal lifetime/Send/storage constraints.
+Handlers are async inherent methods with `&mut self` and exactly one message.
+Shared/owned receivers, associated functions, and trait methods are not part of
+the handler syntax. Keep generics and bounds on an inherent impl such as
+`impl<T: ...> Counter<T>`; use a concrete manifest state `Counter<u32>` and the
+method path `Counter::<u32>::add`. Concrete types must still satisfy the chosen
+backend's normal lifetime, `Send`, and storage constraints.
 
 Keep method visibility suitable for the composition site, especially for
 cross-crate manifests (`pub` methods). Generated adapters and request-capacity
@@ -66,7 +67,7 @@ actor names are used both in `actor_system!` and by builder setters such as
 `.counter(...)` and `.logger(...)`. Across crates, export/import each actor
 name (see `examples/module-lib` and `examples/module-app`).
 
-Issue #17 also removes top-level `context { ... }` and `events: [...];` blocks.
+The current syntax has no top-level `context { ... }` or `events: [...];` blocks.
 Outgoing routes remain declared by typed `#[actor_handler]` parameters:
 `ActorAddress<ActorCommand<M>>` permits `post`/`try_post`, and
 `ActorAddress<ActorEvent<E>>` permits `publish`.
