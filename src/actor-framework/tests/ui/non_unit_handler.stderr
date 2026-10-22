@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
   --> tests/ui/non_unit_handler.rs:11:1
    |
-11 | / actor_module! {
+11 | / actor! {
 12 | |     pub actor worker: State {
 13 | |         mailbox_capacity: 1;
 14 | |         commands { Command => handle; }
@@ -27,7 +27,7 @@ help: the trait `actor_framework::Command` is not implemented for `Command`
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
   --> tests/ui/non_unit_handler.rs:11:1
    |
-11 | / actor_module! {
+11 | / actor! {
 12 | |     pub actor worker: State {
 13 | |         mailbox_capacity: 1;
 14 | |         commands { Command => handle; }
@@ -53,7 +53,7 @@ help: the trait `actor_framework::Command` is not implemented for `Command`
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
   --> tests/ui/non_unit_handler.rs:11:1
    |
-11 | / actor_module! {
+11 | / actor! {
 12 | |     pub actor worker: State {
 13 | |         mailbox_capacity: 1;
 14 | |         commands { Command => handle; }

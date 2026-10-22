@@ -399,7 +399,7 @@ fn expect_ident(input: ParseStream<'_>, expected: &str) -> Result<()> {
 /// register an explicit no-subscriber event. Top-level `context` and `events`
 /// declarations are unsupported.
 #[proc_macro]
-pub fn actor_module(input: TokenStream) -> TokenStream {
+pub fn actor(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ModuleInput);
     let actor_name = &input.actor.field;
     let actor_tokens = quote_actor(&input.actor);
@@ -433,7 +433,7 @@ impl Parse for ModuleInput {
         let actor: ActorDef = input.parse()?;
         input.parse::<Token![;]>()?;
         if !input.is_empty() {
-            return Err(input.error("actor_module! declares exactly one actor; compose actors with actor_system!"));
+            return Err(input.error("actor! declares exactly one actor; compose actors with actor_system!"));
         }
         let events = actor.events.iter().map(|route| route.message.clone()).collect();
         Ok(Self { actor, events })

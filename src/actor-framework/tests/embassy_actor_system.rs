@@ -1,7 +1,7 @@
 #![cfg(all(feature = "embassy", not(feature = "tokio")))]
 #![allow(clippy::redundant_field_names)]
 
-use actor_framework::{actor_module, actor_system};
+use actor_framework::{actor, actor_system};
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use embassy_executor::{Spawner, task};
 use static_cell::StaticCell;
@@ -43,7 +43,7 @@ async fn store(_actor: &mut Logger, message: Store) {
     STORED.fetch_add(message.0, Ordering::SeqCst);
 }
 
-actor_module! {
+actor! {
     actor counter: Counter {
         mailbox_capacity: 1;
         commands { Add => add; }
@@ -51,7 +51,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     actor logger: Logger {
         mailbox_capacity: 1;
         commands { Store => store; }

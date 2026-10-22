@@ -1,6 +1,6 @@
 #![cfg(feature = "tokio")]
 
-use actor_framework::{actor_module, actor_system};
+use actor_framework::{actor, actor_system};
 #[derive(actor_framework::ActorCommand)]
 #[actor_command(response = ())]
 struct Amount(u32);
@@ -139,7 +139,7 @@ static QUEUE_STARTED: tokio::sync::Notify = tokio::sync::Notify::const_new();
 static QUEUE_RELEASE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 static QUEUE_COMPLETED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
-actor_module! {
+actor! {
     pub actor counter: Counter {
         mailbox_capacity: 2;
         commands { Amount => increment; }
@@ -147,7 +147,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor first_recorder: Recorder {
         mailbox_capacity: 2;
         commands {}
@@ -155,7 +155,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor second_recorder: Recorder {
         mailbox_capacity: 2;
         commands {}
@@ -163,7 +163,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor crash_actor: CrashActor {
         mailbox_capacity: 1;
         commands { Crash => crash; }
@@ -171,7 +171,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor slow_actor: SlowActor {
         mailbox_capacity: 1;
         commands { Slow => wait_slow; }
@@ -179,7 +179,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor reset_actor: ResetActor {
         mailbox_capacity: 2;
         commands { Reset => reset; }
@@ -187,7 +187,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor shutdown_actor: ShutdownActor {
         mailbox_capacity: 2;
         commands { BlockUntilReleased => block_until_released; }
@@ -195,7 +195,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor partial_first: PartialRecorder {
         mailbox_capacity: 1;
         commands {}
@@ -203,7 +203,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor partial_closed: PartialClosed {
         mailbox_capacity: 1;
         commands { ClosePartial => close_partial; }
@@ -211,7 +211,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor partial_last: PartialRecorder {
         mailbox_capacity: 1;
         commands {}
@@ -219,7 +219,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor queue: QueueState {
         mailbox_capacity: 2;
         commands { QueueMessage => queue_message; }

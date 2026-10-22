@@ -1,4 +1,4 @@
-error: actor_module! declares exactly one actor; compose actors with actor_system!
+error: actor! declares exactly one actor; compose actors with actor_system!
  --> tests/ui/multiple_actor_declarations.rs:5:5
   |
 5 |     actor second: () { mailbox_capacity: 2; commands {} events {} };

@@ -1,7 +1,7 @@
 error: a command may have only one actor handler
   --> tests/ui/duplicate_command.rs:19:1
    |
-19 | / actor_module! {
+19 | / actor! {
 20 | |     pub actor second_actor: State {
 21 | |         mailbox_capacity: 1;
 22 | |         commands { Command => second; }

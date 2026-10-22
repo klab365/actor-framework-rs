@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use actor_framework::{actor_handler, actor_module, actor_system};
+use actor_framework::{actor, actor_handler, actor_system};
 use defmt::info;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
@@ -60,7 +60,7 @@ async fn blink(led: &mut ActivityLed, event: PressObserved) {
     led.column.set_low();
 }
 
-actor_module! {
+actor! {
     actor counter: Counter {
         mailbox_capacity: 4;
         commands { ButtonPressed => count_press;, ReadCount => read_count; }
@@ -68,7 +68,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     actor activity_led: ActivityLed {
         mailbox_capacity: 2;
         commands {}

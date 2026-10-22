@@ -1,6 +1,6 @@
-use actor_framework::actor_module;
+use actor_framework::actor;
 
-actor_module! {
+actor! {
 }
 
 fn main() {}

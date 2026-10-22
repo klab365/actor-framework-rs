@@ -34,7 +34,7 @@ statically allocated channels/task storage.
 `#[actor_handler]` parses context parameters and emits a hidden generic adapter.
 The selected `actor_system!` backend binds that adapter to its private generated
 router type. This keeps reusable handler crates independent of application/system
-types and requires no duplicate `outgoing` declaration. The `actor_module!`
+types and requires no duplicate `outgoing` declaration. The `actor!`
 actor syntax places event discovery alongside actor event routes: use
 `Event => handler` for subscribers or `Event => []` to explicitly retain a
 no-subscriber publish route. See [the migration guide](actor-module-migration.md). Every actor-referenced handler must carry

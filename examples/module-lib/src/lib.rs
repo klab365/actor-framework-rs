@@ -1,4 +1,4 @@
-use actor_framework::actor_module;
+use actor_framework::actor;
 
 #[derive(actor_framework::ActorCommand)]
 #[actor_command(response = ())]
@@ -31,7 +31,7 @@ pub async fn record(_state: &mut Recorder, event: Added) {
     LAST.store(event.0, std::sync::atomic::Ordering::SeqCst);
 }
 
-actor_module! {
+actor! {
     pub actor counter: Counter {
         mailbox_capacity: 8;
         commands { Add => add; }
@@ -39,7 +39,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor recorder: Recorder {
         mailbox_capacity: 8;
         commands {}

@@ -18,7 +18,7 @@ context structs containing these concrete routes and implement the core route
 traits to forward permitted messages. There is no registry, type erasure, or
 runtime message-type lookup. Unsupported message types fail type checking.
 
-`actor_module!` and `actor_system!` support the same actor declaration and builder syntax
+`actor!` and `actor_system!` support the same actor declaration and builder syntax
 as Tokio. On `wasm32` with feature `wasm`, systems generate local tasks, bounded
 WASM channels, typed send/try_send/publish routes, and module-context capabilities.
 Native targets with `tokio` keep the Tokio backend even with all features enabled.

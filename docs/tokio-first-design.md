@@ -39,7 +39,7 @@ async fn record_analog_value(actor: &mut TelemetryActor, event: AnalogValueChang
     actor.record(event).await;
 }
 
-actor_module! {
+actor! {
     pub actor sensor: SensorActor {
         mailbox_capacity: 8;
         commands { GetAnalogInput => get_analog_input; }
@@ -47,7 +47,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor telemetry: TelemetryActor {
         mailbox_capacity: 4;
         commands {}
@@ -78,9 +78,9 @@ Das Beispiel zeigt die implementierte API-Syntax; konkrete App-Typen und Nachric
 
 ## Makro-Aufgaben
 
-### `actor_module!`
+### `actor!`
 
-Jeder `actor_module!`-Aufruf deklariert genau einen Actor mit `actor: name: State { … };`. Das Manifest ist die einzige Quelle der Wahrheit für dessen Routen, State-Typ, explizite Mailbox-Kapazität und freie Handler-Funktionen. Mehrere Actoren werden ausschließlich über die Manifestliste in `actor_system!` komponiert. Die [Migration](actor-module-migration.md) beschreibt die Umstellung. Ein Handler hat die Form `async fn handler(state: &mut ActorState, message: Message) -> ()` und wird im Manifest als `Message => handler` eingetragen. Handler-Kommunikation wird separat entworfen.
+Jeder `actor!`-Aufruf deklariert genau einen Actor mit `actor: name: State { … };`. Das Manifest ist die einzige Quelle der Wahrheit für dessen Routen, State-Typ, explizite Mailbox-Kapazität und freie Handler-Funktionen. Mehrere Actoren werden ausschließlich über die Manifestliste in `actor_system!` komponiert. Die [Migration](actor-module-migration.md) beschreibt die Umstellung. Ein Handler hat die Form `async fn handler(state: &mut ActorState, message: Message) -> ()` und wird im Manifest als `Message => handler` eingetragen. Handler-Kommunikation wird separat entworfen.
 
 Das Makro erzeugt intern pro Actor einen Nachrichten-Enum und eine bounded Mailbox. Der Enum ist Implementierungsdetail: Nutzer müssen ihn nicht schreiben oder benennen. Die Manifest-Einträge liefern die Zuordnung der öffentlichen Nachrichtentypen zu den internen Mailbox-Varianten und Handlern.
 
@@ -132,7 +132,7 @@ Tokio-Actors benötigen die `Send + 'static`-Grenzen von `tokio::spawn`. Diese B
 
 ## Prototypstatus
 
-Ein Tokio-Vertical-Slice mit `actor_module!`-Manifesten, expliziter Mehrmodul-Komposition über `actor_system!`  ist implementiert. Builder nehmen die konkreten State-Instanzen entgegen. Die Crate-Grenze ist mit `examples/module-lib` und `examples/module-app` geprüft: eine Library exportiert ein context-freies Manifest; Module exportieren ihre Manifeste ohne Handler-Kommunikations-API. Integrationstests unter `src/actor-framework/tests/actor_module.rs` decken Modul-Komposition, Command-Orchestrierung, Fan-out, Events ohne Subscriber und fehlenden State ab.
+Ein Tokio-Vertical-Slice mit `actor!`-Manifesten, expliziter Mehrmodul-Komposition über `actor_system!`  ist implementiert. Builder nehmen die konkreten State-Instanzen entgegen. Die Crate-Grenze ist mit `examples/module-lib` und `examples/module-app` geprüft: eine Library exportiert ein context-freies Manifest; Module exportieren ihre Manifeste ohne Handler-Kommunikations-API. Integrationstests unter `src/actor-framework/tests/actor_module.rs` decken Modul-Komposition, Command-Orchestrierung, Fan-out, Events ohne Subscriber und fehlenden State ab.
 
 Compile-Fail-Tests in `src/actor-framework/tests/ui/` prüfen doppelte Command-Routen und den Versuch, einen unbekannten Command zu senden. Der unbekannte Command schlägt derzeit beim Typabgleich fehl; eine gezieltere Diagnose wäre eine DX-Verbesserung.
 

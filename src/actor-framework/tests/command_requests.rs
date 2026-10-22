@@ -18,7 +18,7 @@ async fn crash(_: &mut (), _: CrashQuery) -> Result<(), ()> {
     panic!("request actor panic")
 }
 
-actor_framework::actor_module! {
+actor_framework::actor! {
     actor worker: () {
     mailbox_capacity: 2;
     commands { Query => handle;, CrashQuery => crash; }

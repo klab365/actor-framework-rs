@@ -1,4 +1,4 @@
-use actor_framework::{ActorSendRoute, Receiver, actor_module, actor_system};
+use actor_framework::{ActorSendRoute, Receiver, actor, actor_system};
 use std::{cell::Cell, rc::Rc};
 use wasm_bindgen::prelude::*;
 
@@ -47,7 +47,7 @@ pub async fn receive_pong(ping: ActorAddress<ActorCommand<Ping>>, state: &mut Po
     }
 }
 
-actor_module! {
+actor! {
     actor ping: PingActor {
         mailbox_capacity: 1;
         commands { Ping => receive_ping; }
@@ -55,7 +55,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     actor pong: PongActor {
         mailbox_capacity: 1;
         commands { Pong => receive_pong; }

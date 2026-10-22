@@ -1,10 +1,10 @@
-# `actor_module!` migration
+# `actor!` migration
 
-`actor_module!` now declares one actor directly. The old `manifest` keyword and
+`actor!` now declares one actor directly. The old `manifest` keyword and
 `actors: [...];` list are removed. Declare each actor with its public actor name:
 
 ```rust,ignore
-actor_module! {
+actor! {
     pub actor logger: Logger {
         mailbox_capacity: 8;
         commands {}
@@ -23,7 +23,7 @@ actor_system! {
 }
 ```
 
-For an old multi-actor list, create one `actor_module!` invocation per entry,
+For an old multi-actor list, create one `actor!` invocation per entry,
 retaining each actor name, state type, mailbox capacity, and typed routes. The
 actor names are used both in `actor_system!` and by builder setters such as
 `.counter(...)` and `.logger(...)`. Across crates, export/import each actor

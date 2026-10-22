@@ -1,4 +1,4 @@
-use actor_framework::{actor_module, actor_system};
+use actor_framework::{actor, actor_system};
 
 struct Command;
 struct State;
@@ -8,7 +8,7 @@ async fn first(_: &App, _: &mut State, _: Command) {}
 #[actor_framework::actor_handler]
 async fn second(_: &App, _: &mut State, _: Command) {}
 
-actor_module! {
+actor! {
     pub actor first_actor: State {
         mailbox_capacity: 1;
         commands { Command => first; }
@@ -16,7 +16,7 @@ actor_module! {
     };
 }
 
-actor_module! {
+actor! {
     pub actor second_actor: State {
         mailbox_capacity: 1;
         commands { Command => second; }

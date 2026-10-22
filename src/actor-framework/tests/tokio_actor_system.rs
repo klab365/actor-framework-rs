@@ -30,7 +30,7 @@ async fn observe(state: &mut ObserverState, event: CounterChanged) {
     state.observed.lock().await.push(event.0);
 }
 
-actor_framework::actor_module! {
+actor_framework::actor! {
     pub actor counter: CounterState {
         mailbox_capacity: 4;
         commands { Amount => increment; }
@@ -38,7 +38,7 @@ actor_framework::actor_module! {
     };
 }
 
-actor_framework::actor_module! {
+actor_framework::actor! {
     pub actor observer_a: ObserverState {
         mailbox_capacity: 4;
         commands {}
@@ -46,7 +46,7 @@ actor_framework::actor_module! {
     };
 }
 
-actor_framework::actor_module! {
+actor_framework::actor! {
     pub actor observer_b: ObserverState {
         mailbox_capacity: 4;
         commands {}
