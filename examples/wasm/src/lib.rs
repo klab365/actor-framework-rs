@@ -49,7 +49,6 @@ pub async fn receive_pong(ping: ActorAddress<ActorCommand<Ping>>, state: &mut Po
 
 actor_module! {
     manifest ping_pong;
-    events: [];
     actors: [
         ping: PingActor {
             mailbox_capacity: 1;

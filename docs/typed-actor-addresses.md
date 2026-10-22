@@ -35,7 +35,9 @@ statically allocated channels/task storage.
 The selected `actor_system!` backend binds that adapter to its private generated
 router type. This keeps reusable handler crates independent of application/system
 types and requires no duplicate `outgoing` declaration. The `actor_module!`
-manifest syntax remains unchanged. Every manifest-referenced handler must carry
+manifest syntax places event discovery alongside actor event routes: use
+`Event => handler` for subscribers or `Event => []` to explicitly retain a
+no-subscriber publish route. See [the migration guide](actor-module-migration.md). Every manifest-referenced handler must carry
 `#[actor_handler]`, including handlers that take no route contexts, because the
 runtime backends invoke the generated adapter.
 

@@ -3,18 +3,18 @@ error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfi
    |
 11 | / actor_module! {
 12 | |     pub manifest routes;
-13 | |     events: [];
-14 | |     actors: [
+13 | |     actors: [
+14 | |         worker: State {
 ...  |
-20 | |     ];
-21 | | }
+19 | |     ];
+20 | | }
    | |_^ unsatisfied trait bound
-22 |
-23 | / actor_system! {
-24 | |     pub struct App {
-25 | |         modules: [routes];
-26 | |     }
-27 | | }
+21 |
+22 | / actor_system! {
+23 | |     pub struct App {
+24 | |         modules: [routes];
+25 | |     }
+26 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -29,18 +29,18 @@ error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfi
    |
 11 | / actor_module! {
 12 | |     pub manifest routes;
-13 | |     events: [];
-14 | |     actors: [
+13 | |     actors: [
+14 | |         worker: State {
 ...  |
-20 | |     ];
-21 | | }
+19 | |     ];
+20 | | }
    | |_^ unsatisfied trait bound
-22 |
-23 | / actor_system! {
-24 | |     pub struct App {
-25 | |         modules: [routes];
-26 | |     }
-27 | | }
+21 |
+22 | / actor_system! {
+23 | |     pub struct App {
+24 | |         modules: [routes];
+25 | |     }
+26 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -55,18 +55,18 @@ error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfi
    |
 11 | / actor_module! {
 12 | |     pub manifest routes;
-13 | |     events: [];
-14 | |     actors: [
+13 | |     actors: [
+14 | |         worker: State {
 ...  |
-20 | |     ];
-21 | | }
+19 | |     ];
+20 | | }
    | |_^ unsatisfied trait bound
-22 |
-23 | / actor_system! {
-24 | |     pub struct App {
-25 | |         modules: [routes];
-26 | |     }
-27 | | }
+21 |
+22 | / actor_system! {
+23 | |     pub struct App {
+24 | |         modules: [routes];
+25 | |     }
+26 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -82,16 +82,16 @@ note: required by a bound in `ActorRequestRoute`
    = note: this error originates in the macro `$crate::__actor_system` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
-  --> tests/ui/non_unit_handler.rs:15:9
+  --> tests/ui/non_unit_handler.rs:14:9
    |
-15 |           worker: State {
+14 |           worker: State {
    |           ^^^^^^ unsatisfied trait bound
 ...
-23 | / actor_system! {
-24 | |     pub struct App {
-25 | |         modules: [routes];
-26 | |     }
-27 | | }
+22 | / actor_system! {
+23 | |     pub struct App {
+24 | |         modules: [routes];
+25 | |     }
+26 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`

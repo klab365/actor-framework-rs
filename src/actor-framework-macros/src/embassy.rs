@@ -79,13 +79,17 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         let cell = format_ident!("__{}{}_cell", name, field);
         let state_var = format_ident!("__{}{}_state", name, field);
         let sender_ty = quote!(::actor_framework::__embassy_sync::channel::Sender<'static, ::actor_framework::__embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex, #msg, #capacity>);
-        let routes: Vec<_> = actor.commands.iter().chain(actor.events.iter()).collect();
+        let routes: Vec<_> = actor
+            .commands
+            .iter()
+            .chain(actor.events.iter().filter(|route| route.handler.is_some()))
+            .collect();
         let command_count = actor.commands.len();
         let variants: Vec<_> = routes.iter().enumerate().map(|(i, r)| {
             let v = format_ident!("Message{i}");
             let ty = &r.message;
             if i < command_count {
-                let handler = &r.handler;
+                let handler = r.handler.as_ref().expect("handler route");
                 let capacity = handler_capacity(handler);
                 quote!(#v(#ty, Option<::actor_framework::embassy::ReplySender<<#ty as ::actor_framework::Command>::Response, { #capacity }>>))
             } else { quote!(#v(#ty)) }
@@ -107,7 +111,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         });
         let dispatch: Vec<_> = routes.iter().enumerate().map(|(i, route)| {
             let v = format_ident!("Message{i}");
-            let handler = actor_handler_adapter(&route.handler);
+            let handler = actor_handler_adapter(route.handler.as_ref().expect("handler route"));
             let ty = &route.message;
             if i < command_count {
                 quote!(#msg::#v(message, reply) => {
@@ -136,7 +140,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
         for (i, route) in actor.commands.iter().enumerate() {
             let message = &route.message;
             let variant = format_ident!("Message{i}");
-            let handler = &route.handler;
+            let handler = route.handler.as_ref().expect("handler route");
             let capacity = handler_capacity(handler);
             let pool = format_ident!("__{}{}_reply_pool_{}", name, field, i);
             reply_pools.push(quote!(#[allow(non_upper_case_globals)] static #pool: ::actor_framework::embassy::ReplyPool<<#message as ::actor_framework::Command>::Response, { #capacity }> = ::actor_framework::embassy::ReplyPool::new();));
@@ -176,7 +180,7 @@ pub(super) fn expand(input: SystemInput) -> Result<TokenStream> {
             });
         }
         let offset = actor.commands.len();
-        for (i, route) in actor.events.iter().enumerate() {
+        for (i, route) in actor.events.iter().filter(|route| route.handler.is_some()).enumerate() {
             let message = &route.message;
             let variant = format_ident!("Message{}", offset + i);
             let sends = event_groups

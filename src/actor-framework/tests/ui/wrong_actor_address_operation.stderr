@@ -11,16 +11,16 @@ error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfi
    |
 13 | / actor_module! {
 14 | |     pub manifest routes;
-15 | |     events: [Event];
-16 | |     actors: [
+15 | |     actors: [
+16 | |         actor: State {
 ...  |
-22 | |     ];
-23 | | }
+21 | |     ];
+22 | | }
    | |_^ unsatisfied trait bound
-24 |
-25 | / actor_system! {
-26 | |     pub struct App { modules: [routes]; }
-27 | | }
+23 |
+24 | / actor_system! {
+25 | |     pub struct App { modules: [routes]; }
+26 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -35,16 +35,16 @@ error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfi
    |
 13 | / actor_module! {
 14 | |     pub manifest routes;
-15 | |     events: [Event];
-16 | |     actors: [
+15 | |     actors: [
+16 | |         actor: State {
 ...  |
-22 | |     ];
-23 | | }
+21 | |     ];
+22 | | }
    | |_^ unsatisfied trait bound
-24 |
-25 | / actor_system! {
-26 | |     pub struct App { modules: [routes]; }
-27 | | }
+23 |
+24 | / actor_system! {
+25 | |     pub struct App { modules: [routes]; }
+26 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -59,16 +59,16 @@ error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfi
    |
 13 | / actor_module! {
 14 | |     pub manifest routes;
-15 | |     events: [Event];
-16 | |     actors: [
+15 | |     actors: [
+16 | |         actor: State {
 ...  |
-22 | |     ];
-23 | | }
+21 | |     ];
+22 | | }
    | |_^ unsatisfied trait bound
-24 |
-25 | / actor_system! {
-26 | |     pub struct App { modules: [routes]; }
-27 | | }
+23 |
+24 | / actor_system! {
+25 | |     pub struct App { modules: [routes]; }
+26 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -92,14 +92,14 @@ error[E0599]: no method named `post` found for struct `ActorAddress<'_, ActorEve
    = note: the method was found for `ActorAddress<'_, ActorCommand<M>, Router>`
 
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
-  --> tests/ui/wrong_actor_address_operation.rs:17:9
+  --> tests/ui/wrong_actor_address_operation.rs:16:9
    |
-17 |           actor: State {
+16 |           actor: State {
    |           ^^^^^ unsatisfied trait bound
 ...
-25 | / actor_system! {
-26 | |     pub struct App { modules: [routes]; }
-27 | | }
+24 | / actor_system! {
+25 | |     pub struct App { modules: [routes]; }
+26 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -108,3 +108,97 @@ help: the trait `actor_framework::Command` is not implemented for `Command`
  3 | struct Command;
    | ^^^^^^^^^^^^^^
    = note: this error originates in the macro `routes` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `__AppContext: ActorPublishRoute<Event>` is not satisfied
+  --> tests/ui/wrong_actor_address_operation.rs:13:1
+   |
+13 | / actor_module! {
+14 | |     pub manifest routes;
+15 | |     actors: [
+16 | |         actor: State {
+...  |
+21 | |     ];
+22 | | }
+   | |_^ unsatisfied trait bound
+23 |
+24 | / actor_system! {
+25 | |     pub struct App { modules: [routes]; }
+26 | | }
+   | |_- in this macro invocation
+   |
+help: the trait `ActorPublishRoute<Event>` is not implemented for `__AppContext`
+  --> tests/ui/wrong_actor_address_operation.rs:13:1
+   |
+13 | / actor_module! {
+14 | |     pub manifest routes;
+15 | |     actors: [
+16 | |         actor: State {
+...  |
+21 | |     ];
+22 | | }
+   | |_^
+23 |
+24 | / actor_system! {
+25 | |     pub struct App { modules: [routes]; }
+26 | | }
+   | |_- in this macro invocation
+help: the trait `ActorPublishRoute<M>` is implemented for `actor_framework::wasm::Publisher<M, N>`
+  --> src/wasm.rs
+   |
+   | impl<M: Clone, const N: usize> ActorPublishRoute<M> for Publisher<M, N> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `__actor_handler_handle`
+  --> tests/ui/wrong_actor_address_operation.rs:8:1
+   |
+ 8 | #[actor_handler]
+   | ^^^^^^^^^^^^^^^^ required by this bound in `__actor_handler_handle`
+ 9 | async fn handle(events: ActorAddress<ActorEvent<Event>>, _state: &mut State, _message: Command) {
+   |          ------ required by a bound in this function
+   = note: this error originates in the macro `routes` which comes from the expansion of the attribute macro `actor_handler` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `__AppContext: ActorPublishRoute<Event>` is not satisfied
+  --> tests/ui/wrong_actor_address_operation.rs:13:1
+   |
+13 | / actor_module! {
+14 | |     pub manifest routes;
+15 | |     actors: [
+16 | |         actor: State {
+...  |
+21 | |     ];
+22 | | }
+   | |_^ unsatisfied trait bound
+23 |
+24 | / actor_system! {
+25 | |     pub struct App { modules: [routes]; }
+26 | | }
+   | |_- in this macro invocation
+   |
+help: the trait `ActorPublishRoute<Event>` is not implemented for `__AppContext`
+  --> tests/ui/wrong_actor_address_operation.rs:13:1
+   |
+13 | / actor_module! {
+14 | |     pub manifest routes;
+15 | |     actors: [
+16 | |         actor: State {
+...  |
+21 | |     ];
+22 | | }
+   | |_^
+23 |
+24 | / actor_system! {
+25 | |     pub struct App { modules: [routes]; }
+26 | | }
+   | |_- in this macro invocation
+help: the trait `ActorPublishRoute<M>` is implemented for `actor_framework::wasm::Publisher<M, N>`
+  --> src/wasm.rs
+   |
+   | impl<M: Clone, const N: usize> ActorPublishRoute<M> for Publisher<M, N> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `__actor_handler_handle`
+  --> tests/ui/wrong_actor_address_operation.rs:8:1
+   |
+ 8 | #[actor_handler]
+   | ^^^^^^^^^^^^^^^^ required by this bound in `__actor_handler_handle`
+ 9 | async fn handle(events: ActorAddress<ActorEvent<Event>>, _state: &mut State, _message: Command) {
+   |          ------ required by a bound in this function
+   = note: this error originates in the macro `$crate::__actor_framework_collect_modules` which comes from the expansion of the attribute macro `actor_handler` (in Nightly builds, run with -Z macro-backtrace for more info)

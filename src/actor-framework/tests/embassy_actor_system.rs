@@ -45,7 +45,6 @@ async fn store(_actor: &mut Logger, message: Store) {
 
 actor_module! {
     manifest test_manifest;
-    events: [Changed];
     actors: [
         counter: Counter {
             mailbox_capacity: 1;

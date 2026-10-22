@@ -30,7 +30,7 @@ struct ActorDef {
 #[derive(Clone)]
 struct RouteDef {
     message: Type,
-    handler: Path,
+    handler: Option<Path>,
 }
 
 impl Parse for SystemInput {
@@ -44,7 +44,7 @@ impl Parse for SystemInput {
         body.parse::<Token![:]>()?;
         let actors_body;
         syn::bracketed!(actors_body in body);
-        let actors = Punctuated::<ActorDef, Token![,]>::parse_terminated(&actors_body)?
+        let actors: Vec<ActorDef> = Punctuated::<ActorDef, Token![,]>::parse_terminated(&actors_body)?
             .into_iter()
             .collect();
         body.parse::<Token![;]>()?;
@@ -59,11 +59,20 @@ impl Parse for SystemInput {
                 .collect();
             body.parse::<Token![;]>()?;
         }
+        let mut unique_events = Vec::new();
+        for event in events {
+            if !unique_events
+                .iter()
+                .any(|known| quote!(#known).to_string() == quote!(#event).to_string())
+            {
+                unique_events.push(event);
+            }
+        }
         Ok(Self {
             visibility,
             name,
             actors,
-            events,
+            events: unique_events,
         })
     }
 }
@@ -87,7 +96,15 @@ impl Parse for ActorDef {
             syn::braced!(route_body in body);
             let routes = Punctuated::<RouteDef, Token![,]>::parse_terminated(&route_body)?;
             match section.to_string().as_str() {
-                "commands" => commands.extend(routes),
+                "commands" => {
+                    if let Some(route) = routes.iter().find(|route| route.handler.is_none()) {
+                        return Err(syn::Error::new_spanned(
+                            &route.message,
+                            "commands require exactly one handler",
+                        ));
+                    }
+                    commands.extend(routes);
+                }
                 "events" => events.extend(routes),
                 _ => {
                     return Err(syn::Error::new(section.span(), "expected `commands` or `events`"));
@@ -108,7 +125,21 @@ impl Parse for RouteDef {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let message = input.parse()?;
         input.parse::<Token![=>]>()?;
-        let handler = input.parse()?;
+        let handler = if input.peek(syn::token::Bracket) {
+            let handlers;
+            syn::bracketed!(handlers in input);
+            if handlers.is_empty() {
+                None
+            } else {
+                let handler = handlers.parse()?;
+                if !handlers.is_empty() {
+                    return Err(handlers.error("expected one handler"));
+                }
+                Some(handler)
+            }
+        } else {
+            Some(input.parse()?)
+        };
         if input.peek(Token![;]) {
             input.parse::<Token![;]>()?;
         }
@@ -362,6 +393,10 @@ fn expect_ident(input: ParseStream<'_>, expected: &str) -> Result<()> {
 }
 
 /// Create an actor manifest macro that can be consumed by `actor_system!`.
+///
+/// Event routes use `Event => handler` for a subscriber or `Event => []` to
+/// register an explicit no-subscriber event. Top-level `context` and `events`
+/// declarations are unsupported.
 #[proc_macro]
 pub fn actor_module(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ModuleInput);
@@ -398,29 +433,18 @@ impl Parse for ModuleInput {
         expect_ident(input, "manifest")?;
         let manifest = input.parse()?;
         input.parse::<Token![;]>()?;
-        let mut events = Vec::new();
-        if input.peek(Ident) {
-            let fork = input.fork();
-            let section: Ident = fork.parse()?;
-            if section == "events" {
-                expect_ident(input, "events")?;
-                input.parse::<Token![:]>()?;
-                let event_body;
-                syn::bracketed!(event_body in input);
-                events = Punctuated::<Type, Token![,]>::parse_terminated(&event_body)?
-                    .into_iter()
-                    .collect();
-                input.parse::<Token![;]>()?;
-            }
-        }
         expect_ident(input, "actors")?;
         input.parse::<Token![:]>()?;
         let actors_body;
         syn::bracketed!(actors_body in input);
-        let actors = Punctuated::<ActorDef, Token![,]>::parse_terminated(&actors_body)?
+        let actors: Vec<ActorDef> = Punctuated::<ActorDef, Token![,]>::parse_terminated(&actors_body)?
             .into_iter()
             .collect();
         input.parse::<Token![;]>()?;
+        let events = actors
+            .iter()
+            .flat_map(|actor| actor.events.iter().map(|route| route.message.clone()))
+            .collect();
         Ok(Self {
             manifest,
             actors,
@@ -469,13 +493,14 @@ fn quote_actor(actor: &ActorDef) -> proc_macro2::TokenStream {
     let capacity = &actor.capacity;
     let commands = actor.commands.iter().map(|route| {
         let message = module_type(&route.message);
-        let handler = module_handler(&route.handler);
+        let handler = module_handler(route.handler.as_ref().expect("handler route"));
         quote! { #message => #handler;, }
     });
-    let events = actor.events.iter().map(|route| {
+    let events = actor.events.iter().filter_map(|route| {
+        let handler = route.handler.as_ref()?;
         let message = module_type(&route.message);
-        let handler = module_handler(&route.handler);
-        quote! { #message => #handler;, }
+        let handler = module_handler(handler);
+        Some(quote! { #message => #handler;, })
     });
     quote! {
         #field: #state {
@@ -523,7 +548,7 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
     let enum_defs = actors.iter().map(|actor| {
         let msg_enum = format_ident!("__{}MailboxMessage", actor.field);
         let command_count = actor.commands.len();
-        let variants = actor.commands.iter().chain(actor.events.iter()).enumerate().map(|(index, route)| {
+        let variants = actor.commands.iter().chain(actor.events.iter().filter(|route| route.handler.is_some())).enumerate().map(|(index, route)| {
             let variant = format_ident!("Message{}", index);
             let ty = &route.message;
             if index < command_count {
@@ -620,10 +645,10 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
         let done_tx = format_ident!("__{}_done_tx", field);
         let msg_enum = format_ident!("__{}MailboxMessage", field);
         let command_count = actor.commands.len();
-        let arms = actor.commands.iter().chain(actor.events.iter()).enumerate().map(|(index, route)| {
+        let arms = actor.commands.iter().chain(actor.events.iter().filter(|route| route.handler.is_some())).enumerate().map(|(index, route)| {
             let variant = format_ident!("Message{}", index);
             let ty = &route.message;
-            let handler = handler_adapter(&route.handler);
+            let handler = handler_adapter(route.handler.as_ref().expect("handler route"));
             if index < command_count {
                 quote! { #msg_enum::#variant(message, reply) => {
                     let response: <#ty as ::actor_framework::Command>::Response = #handler(&task_context, &mut #state, message).await;
@@ -708,7 +733,7 @@ fn expand(input: SystemInput, wasm: bool) -> Result<proc_macro2::TokenStream> {
         let field = &actor.field;
         let msg_enum = format_ident!("__{}MailboxMessage", field);
         let offset = actor.commands.len();
-        for (index, route) in actor.events.iter().enumerate() {
+        for (index, route) in actor.events.iter().filter(|route| route.handler.is_some()).enumerate() {
             let message = &route.message;
             if !event_route_groups
                 .iter()

@@ -38,7 +38,6 @@ static LOG: std::sync::LazyLock<Arc<Mutex<Vec<u32>>>> = std::sync::LazyLock::new
 
 actor_module! {
     pub manifest application;
-    events: [TotalChanged];
     actors: [
         counter: Counter {
             mailbox_capacity: 8;
