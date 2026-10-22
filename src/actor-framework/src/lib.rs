@@ -2,9 +2,12 @@
 
 //! Statically routed actors with bounded, runtime-specific mailboxes.
 //!
-//! The always-available [`core`] module requires neither an allocator nor an executor.
-//! Manifest macros support the `tokio`, `wasm`, and `embassy` backends; lifecycle semantics
-//! are runtime-specific.
+//! An [`actor!`] declaration defines one actor and its bounded mailbox;
+//! [`actor_system!`] composes declarations into typed command and event routes.
+//! Route success acknowledges mailbox acceptance, not completed handling. The
+//! always-available [`core`] module requires neither an allocator nor an executor.
+//! Manifest macros support the `tokio`, `wasm`, and `embassy` backends; capacity,
+//! shutdown, and storage semantics are runtime-specific.
 
 pub mod core;
 

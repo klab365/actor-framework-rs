@@ -1,6 +1,10 @@
 # Runtime-neutral actor core
 
-## Crate boundary (issue #4)
+This note describes the allocator-free `core` execution boundary and how
+runtime adapters implement it. For the public-facing overview and runnable
+introduction, start with the [README](../README.md).
+
+## Crate boundary
 
 Keep one public crate, `actor-framework-rs`: its always-available `core` module
 and root re-exports contain runtime-independent contracts and inline storage.
@@ -76,7 +80,7 @@ the caller. It offers no supervision or panic recovery. Tokio retains its
 separate generated loops: shutdown lets the active handler finish and discards
 queued messages. This difference is explicit, not an implied shared lifecycle.
 
-## Validation and deferred work
+## Validation boundaries
 
 `mise run check` selects the package explicitly with `--no-default-features`:
 workspace-wide checks can accidentally re-enable Tokio through example feature
@@ -84,6 +88,6 @@ unification. `mise run test-core` checks storage, ownership/drop behavior and
 inline local execution without runtime features. Existing integration and UI
 tests continue to validate Tokio, routing, backpressure and shutdown.
 
-The [Embassy prototype](embassy.md) cross-compiles its generated actor-system
-backend for Cortex-M4F. On-device validation and shutdown/supervision semantics
-remain future work.
+The [Embassy backend](embassy.md) has a cross-compilable Micro:bit example;
+physical-device behavior still requires hardware validation. Shutdown and
+supervision guarantees are backend-specific as described in the runtime guides.

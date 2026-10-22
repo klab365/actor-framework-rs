@@ -1,4 +1,7 @@
-# WebAssembly adapter prototype (issue #5)
+# WebAssembly adapter
+
+This guide covers the `wasm` generated-system backend and its host/lifecycle
+constraints. Start with the [README](../README.md) for the general overview.
 
 Enable `actor-framework-rs` with `default-features = false, features = ["wasm"]`.
 The adapter targets `wasm32-unknown-unknown` with a wasm-bindgen JavaScript host
