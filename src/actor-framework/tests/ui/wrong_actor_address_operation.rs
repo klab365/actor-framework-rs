@@ -1,4 +1,4 @@
-use actor_framework::{ActorAddress, ActorEvent, actor_handler, actor_module, actor_system};
+use actor_framework::{ActorAddress, ActorEvent, actor_handler, actor, actor_system};
 
 struct Command;
 #[derive(Clone)]
@@ -10,19 +10,16 @@ async fn handle(events: ActorAddress<ActorEvent<Event>>, _state: &mut State, _me
     events.post(Event).await.unwrap();
 }
 
-actor_module! {
-    pub manifest routes;
-    actors: [
-        actor: State {
-            mailbox_capacity: 1;
-            commands { Command => handle; }
-            events {}
-        }
-    ];
+actor! {
+    pub actor actor: State {
+        mailbox_capacity: 1;
+        commands { Command => handle; }
+        events {}
+    };
 }
 
 actor_system! {
-    pub struct App { modules: [routes]; }
+    pub struct App { actors: [actor]; }
 }
 
 fn main() {}

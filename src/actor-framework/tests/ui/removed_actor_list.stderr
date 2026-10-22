@@ -1,0 +1,5 @@
+error: expected `actor`
+ --> tests/ui/removed_actor_list.rs:4:5
+  |
+4 |     actors: [
+  |     ^^^^^^

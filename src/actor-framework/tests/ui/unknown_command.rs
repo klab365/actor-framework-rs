@@ -1,4 +1,4 @@
-use actor_framework::{actor_module, actor_system};
+use actor_framework::{actor, actor_system};
 
 struct Known;
 struct Unknown;
@@ -7,20 +7,17 @@ struct State;
 #[actor_framework::actor_handler]
 async fn handle(_: &mut State, _: Known) {}
 
-actor_module! {
-    pub manifest routes;
-    actors: [
-        actor: State {
-            mailbox_capacity: 1;
-            commands { Known => handle; }
-            events {}
-        }
-    ];
+actor! {
+    pub actor actor: State {
+        mailbox_capacity: 1;
+        commands { Known => handle; }
+        events {}
+    };
 }
 
 actor_system! {
     pub struct App {
-        modules: [routes];
+        actors: [actor];
     }
 }
 

@@ -1,7 +1,49 @@
+error[E0255]: the name `actor` is defined multiple times
+  --> tests/ui/wrong_actor_address_operation.rs:13:1
+   |
+ 1 | use actor_framework::{ActorAddress, ActorEvent, actor_handler, actor, actor_system};
+   |                                                                ----- previous import of the macro `actor` here
+...
+13 | actor! {
+   | ^^^^^^ `actor` redefined here
+   |
+   = note: `actor` must be defined only once in the macro namespace of this module
+   = note: this error originates in the macro `actor` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: you can use `as` to change the binding name of the import
+   |
+ 1 | use actor_framework::{ActorAddress, ActorEvent, actor_handler, actor as other_actor, actor_system};
+   |                                                                      ++++++++++++++
+
+error[E0659]: `actor` is ambiguous
+  --> tests/ui/wrong_actor_address_operation.rs:22:31
+   |
+22 |     pub struct App { actors: [actor]; }
+   |                               ^^^^^ ambiguous name
+   |
+   = note: ambiguous because of a conflict between a macro-expanded name and a less macro-expanded name from outer scope during import or macro resolution
+note: `actor` could refer to the macro defined here
+  --> tests/ui/wrong_actor_address_operation.rs:13:1
+   |
+13 | / actor! {
+14 | |     pub actor actor: State {
+15 | |         mailbox_capacity: 1;
+16 | |         commands { Command => handle; }
+17 | |         events {}
+18 | |     };
+19 | | }
+   | |_^
+note: `actor` could also refer to the macro imported here
+  --> tests/ui/wrong_actor_address_operation.rs:1:64
+   |
+ 1 | use actor_framework::{ActorAddress, ActorEvent, actor_handler, actor, actor_system};
+   |                                                                ^^^^^
+   = help: use `crate::actor` to refer to this macro unambiguously
+   = note: this error originates in the macro `actor` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 warning: unused imports: `ActorAddress` and `ActorEvent`
  --> tests/ui/wrong_actor_address_operation.rs:1:23
   |
-1 | use actor_framework::{ActorAddress, ActorEvent, actor_handler, actor_module, actor_system};
+1 | use actor_framework::{ActorAddress, ActorEvent, actor_handler, actor, actor_system};
   |                       ^^^^^^^^^^^^  ^^^^^^^^^^
   |
   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
@@ -9,18 +51,18 @@ warning: unused imports: `ActorAddress` and `ActorEvent`
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
   --> tests/ui/wrong_actor_address_operation.rs:13:1
    |
-13 | / actor_module! {
-14 | |     pub manifest routes;
-15 | |     actors: [
-16 | |         actor: State {
-...  |
-21 | |     ];
-22 | | }
+13 | / actor! {
+14 | |     pub actor actor: State {
+15 | |         mailbox_capacity: 1;
+16 | |         commands { Command => handle; }
+17 | |         events {}
+18 | |     };
+19 | | }
    | |_^ unsatisfied trait bound
-23 |
-24 | / actor_system! {
-25 | |     pub struct App { modules: [routes]; }
-26 | | }
+20 |
+21 | / actor_system! {
+22 | |     pub struct App { actors: [actor]; }
+23 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -33,18 +75,18 @@ help: the trait `actor_framework::Command` is not implemented for `Command`
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
   --> tests/ui/wrong_actor_address_operation.rs:13:1
    |
-13 | / actor_module! {
-14 | |     pub manifest routes;
-15 | |     actors: [
-16 | |         actor: State {
-...  |
-21 | |     ];
-22 | | }
+13 | / actor! {
+14 | |     pub actor actor: State {
+15 | |         mailbox_capacity: 1;
+16 | |         commands { Command => handle; }
+17 | |         events {}
+18 | |     };
+19 | | }
    | |_^ unsatisfied trait bound
-23 |
-24 | / actor_system! {
-25 | |     pub struct App { modules: [routes]; }
-26 | | }
+20 |
+21 | / actor_system! {
+22 | |     pub struct App { actors: [actor]; }
+23 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -57,18 +99,18 @@ help: the trait `actor_framework::Command` is not implemented for `Command`
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
   --> tests/ui/wrong_actor_address_operation.rs:13:1
    |
-13 | / actor_module! {
-14 | |     pub manifest routes;
-15 | |     actors: [
-16 | |         actor: State {
-...  |
-21 | |     ];
-22 | | }
+13 | / actor! {
+14 | |     pub actor actor: State {
+15 | |         mailbox_capacity: 1;
+16 | |         commands { Command => handle; }
+17 | |         events {}
+18 | |     };
+19 | | }
    | |_^ unsatisfied trait bound
-23 |
-24 | / actor_system! {
-25 | |     pub struct App { modules: [routes]; }
-26 | | }
+20 |
+21 | / actor_system! {
+22 | |     pub struct App { actors: [actor]; }
+23 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -92,14 +134,14 @@ error[E0599]: no method named `post` found for struct `ActorAddress<'_, ActorEve
    = note: the method was found for `ActorAddress<'_, ActorCommand<M>, Router>`
 
 error[E0277]: the trait bound `Command: actor_framework::Command` is not satisfied
-  --> tests/ui/wrong_actor_address_operation.rs:16:9
+  --> tests/ui/wrong_actor_address_operation.rs:14:15
    |
-16 |           actor: State {
-   |           ^^^^^ unsatisfied trait bound
+14 |       pub actor actor: State {
+   |                 ^^^^^ unsatisfied trait bound
 ...
-24 | / actor_system! {
-25 | |     pub struct App { modules: [routes]; }
-26 | | }
+21 | / actor_system! {
+22 | |     pub struct App { actors: [actor]; }
+23 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Command`
@@ -107,40 +149,40 @@ help: the trait `actor_framework::Command` is not implemented for `Command`
    |
  3 | struct Command;
    | ^^^^^^^^^^^^^^
-   = note: this error originates in the macro `routes` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `actor` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `__AppContext: ActorPublishRoute<Event>` is not satisfied
   --> tests/ui/wrong_actor_address_operation.rs:13:1
    |
-13 | / actor_module! {
-14 | |     pub manifest routes;
-15 | |     actors: [
-16 | |         actor: State {
-...  |
-21 | |     ];
-22 | | }
+13 | / actor! {
+14 | |     pub actor actor: State {
+15 | |         mailbox_capacity: 1;
+16 | |         commands { Command => handle; }
+17 | |         events {}
+18 | |     };
+19 | | }
    | |_^ unsatisfied trait bound
-23 |
-24 | / actor_system! {
-25 | |     pub struct App { modules: [routes]; }
-26 | | }
+20 |
+21 | / actor_system! {
+22 | |     pub struct App { actors: [actor]; }
+23 | | }
    | |_- in this macro invocation
    |
 help: the trait `ActorPublishRoute<Event>` is not implemented for `__AppContext`
   --> tests/ui/wrong_actor_address_operation.rs:13:1
    |
-13 | / actor_module! {
-14 | |     pub manifest routes;
-15 | |     actors: [
-16 | |         actor: State {
-...  |
-21 | |     ];
-22 | | }
+13 | / actor! {
+14 | |     pub actor actor: State {
+15 | |         mailbox_capacity: 1;
+16 | |         commands { Command => handle; }
+17 | |         events {}
+18 | |     };
+19 | | }
    | |_^
-23 |
-24 | / actor_system! {
-25 | |     pub struct App { modules: [routes]; }
-26 | | }
+20 |
+21 | / actor_system! {
+22 | |     pub struct App { actors: [actor]; }
+23 | | }
    | |_- in this macro invocation
 help: the trait `ActorPublishRoute<M>` is implemented for `actor_framework::wasm::Publisher<M, N>`
   --> src/wasm.rs
@@ -154,40 +196,40 @@ note: required by a bound in `__actor_handler_handle`
    | ^^^^^^^^^^^^^^^^ required by this bound in `__actor_handler_handle`
  9 | async fn handle(events: ActorAddress<ActorEvent<Event>>, _state: &mut State, _message: Command) {
    |          ------ required by a bound in this function
-   = note: this error originates in the macro `routes` which comes from the expansion of the attribute macro `actor_handler` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `actor` which comes from the expansion of the attribute macro `actor_handler` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `__AppContext: ActorPublishRoute<Event>` is not satisfied
   --> tests/ui/wrong_actor_address_operation.rs:13:1
    |
-13 | / actor_module! {
-14 | |     pub manifest routes;
-15 | |     actors: [
-16 | |         actor: State {
-...  |
-21 | |     ];
-22 | | }
+13 | / actor! {
+14 | |     pub actor actor: State {
+15 | |         mailbox_capacity: 1;
+16 | |         commands { Command => handle; }
+17 | |         events {}
+18 | |     };
+19 | | }
    | |_^ unsatisfied trait bound
-23 |
-24 | / actor_system! {
-25 | |     pub struct App { modules: [routes]; }
-26 | | }
+20 |
+21 | / actor_system! {
+22 | |     pub struct App { actors: [actor]; }
+23 | | }
    | |_- in this macro invocation
    |
 help: the trait `ActorPublishRoute<Event>` is not implemented for `__AppContext`
   --> tests/ui/wrong_actor_address_operation.rs:13:1
    |
-13 | / actor_module! {
-14 | |     pub manifest routes;
-15 | |     actors: [
-16 | |         actor: State {
-...  |
-21 | |     ];
-22 | | }
+13 | / actor! {
+14 | |     pub actor actor: State {
+15 | |         mailbox_capacity: 1;
+16 | |         commands { Command => handle; }
+17 | |         events {}
+18 | |     };
+19 | | }
    | |_^
-23 |
-24 | / actor_system! {
-25 | |     pub struct App { modules: [routes]; }
-26 | | }
+20 |
+21 | / actor_system! {
+22 | |     pub struct App { actors: [actor]; }
+23 | | }
    | |_- in this macro invocation
 help: the trait `ActorPublishRoute<M>` is implemented for `actor_framework::wasm::Publisher<M, N>`
   --> src/wasm.rs

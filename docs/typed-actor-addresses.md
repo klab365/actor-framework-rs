@@ -21,7 +21,7 @@ async fn count_press(
 `ActorCommand<M>` enables `post` and `try_post`; `ActorEvent<E>` enables
 `publish`. Wrong operations and missing routes fail at compile time through the
 generated route-trait bounds. Event messages must implement `Clone` for fan-out.
-Publishing is sequential in manifest order: it backpressures on each bounded
+Publishing is sequential in actor declaration order: it backpressures on each bounded
 mailbox, can partially deliver if a later send fails or the future is cancelled,
 and succeeds when there are no subscribers. `post` success means accepted, not
 handled. Calls after shutdown return `SendError`.
@@ -34,10 +34,10 @@ statically allocated channels/task storage.
 `#[actor_handler]` parses context parameters and emits a hidden generic adapter.
 The selected `actor_system!` backend binds that adapter to its private generated
 router type. This keeps reusable handler crates independent of application/system
-types and requires no duplicate `outgoing` declaration. The `actor_module!`
-manifest syntax places event discovery alongside actor event routes: use
+types and requires no duplicate `outgoing` declaration. The `actor!`
+actor syntax places event discovery alongside actor event routes: use
 `Event => handler` for subscribers or `Event => []` to explicitly retain a
-no-subscriber publish route. See [the migration guide](actor-module-migration.md). Every manifest-referenced handler must carry
+no-subscriber publish route. See [the migration guide](actor-module-migration.md). Every actor-referenced handler must carry
 `#[actor_handler]`, including handlers that take no route contexts, because the
 runtime backends invoke the generated adapter.
 

@@ -1,20 +1,62 @@
+error[E0255]: the name `actor` is defined multiple times
+  --> tests/ui/unknown_command.rs:10:1
+   |
+ 1 | use actor_framework::{actor, actor_system};
+   |                       ----- previous import of the macro `actor` here
+...
+10 | actor! {
+   | ^^^^^^ `actor` redefined here
+   |
+   = note: `actor` must be defined only once in the macro namespace of this module
+   = note: this error originates in the macro `actor` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: you can use `as` to change the binding name of the import
+   |
+ 1 | use actor_framework::{actor as other_actor, actor_system};
+   |                             ++++++++++++++
+
+error[E0659]: `actor` is ambiguous
+  --> tests/ui/unknown_command.rs:20:18
+   |
+20 |         actors: [actor];
+   |                  ^^^^^ ambiguous name
+   |
+   = note: ambiguous because of a conflict between a macro-expanded name and a less macro-expanded name from outer scope during import or macro resolution
+note: `actor` could refer to the macro defined here
+  --> tests/ui/unknown_command.rs:10:1
+   |
+10 | / actor! {
+11 | |     pub actor actor: State {
+12 | |         mailbox_capacity: 1;
+13 | |         commands { Known => handle; }
+14 | |         events {}
+15 | |     };
+16 | | }
+   | |_^
+note: `actor` could also refer to the macro imported here
+  --> tests/ui/unknown_command.rs:1:23
+   |
+ 1 | use actor_framework::{actor, actor_system};
+   |                       ^^^^^
+   = help: use `crate::actor` to refer to this macro unambiguously
+   = note: this error originates in the macro `actor` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0277]: the trait bound `Known: actor_framework::Command` is not satisfied
   --> tests/ui/unknown_command.rs:10:1
    |
-10 | / actor_module! {
-11 | |     pub manifest routes;
-12 | |     actors: [
-13 | |         actor: State {
-...  |
-18 | |     ];
-19 | | }
+10 | / actor! {
+11 | |     pub actor actor: State {
+12 | |         mailbox_capacity: 1;
+13 | |         commands { Known => handle; }
+14 | |         events {}
+15 | |     };
+16 | | }
    | |_^ unsatisfied trait bound
-20 |
-21 | / actor_system! {
-22 | |     pub struct App {
-23 | |         modules: [routes];
-24 | |     }
-25 | | }
+17 |
+18 | / actor_system! {
+19 | |     pub struct App {
+20 | |         actors: [actor];
+21 | |     }
+22 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Known`
@@ -27,20 +69,20 @@ help: the trait `actor_framework::Command` is not implemented for `Known`
 error[E0277]: the trait bound `Known: actor_framework::Command` is not satisfied
   --> tests/ui/unknown_command.rs:10:1
    |
-10 | / actor_module! {
-11 | |     pub manifest routes;
-12 | |     actors: [
-13 | |         actor: State {
-...  |
-18 | |     ];
-19 | | }
+10 | / actor! {
+11 | |     pub actor actor: State {
+12 | |         mailbox_capacity: 1;
+13 | |         commands { Known => handle; }
+14 | |         events {}
+15 | |     };
+16 | | }
    | |_^ unsatisfied trait bound
-20 |
-21 | / actor_system! {
-22 | |     pub struct App {
-23 | |         modules: [routes];
-24 | |     }
-25 | | }
+17 |
+18 | / actor_system! {
+19 | |     pub struct App {
+20 | |         actors: [actor];
+21 | |     }
+22 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Known`
@@ -53,20 +95,20 @@ help: the trait `actor_framework::Command` is not implemented for `Known`
 error[E0277]: the trait bound `Known: actor_framework::Command` is not satisfied
   --> tests/ui/unknown_command.rs:10:1
    |
-10 | / actor_module! {
-11 | |     pub manifest routes;
-12 | |     actors: [
-13 | |         actor: State {
-...  |
-18 | |     ];
-19 | | }
+10 | / actor! {
+11 | |     pub actor actor: State {
+12 | |         mailbox_capacity: 1;
+13 | |         commands { Known => handle; }
+14 | |         events {}
+15 | |     };
+16 | | }
    | |_^ unsatisfied trait bound
-20 |
-21 | / actor_system! {
-22 | |     pub struct App {
-23 | |         modules: [routes];
-24 | |     }
-25 | | }
+17 |
+18 | / actor_system! {
+19 | |     pub struct App {
+20 | |         actors: [actor];
+21 | |     }
+22 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Known`
@@ -82,16 +124,16 @@ note: required by a bound in `ActorRequestRoute`
    = note: this error originates in the macro `$crate::__actor_system` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Known: actor_framework::Command` is not satisfied
-  --> tests/ui/unknown_command.rs:13:9
+  --> tests/ui/unknown_command.rs:11:15
    |
-13 |           actor: State {
-   |           ^^^^^ unsatisfied trait bound
+11 |       pub actor actor: State {
+   |                 ^^^^^ unsatisfied trait bound
 ...
-21 | / actor_system! {
-22 | |     pub struct App {
-23 | |         modules: [routes];
-24 | |     }
-25 | | }
+18 | / actor_system! {
+19 | |     pub struct App {
+20 | |         actors: [actor];
+21 | |     }
+22 | | }
    | |_- in this macro invocation
    |
 help: the trait `actor_framework::Command` is not implemented for `Known`
@@ -99,39 +141,39 @@ help: the trait `actor_framework::Command` is not implemented for `Known`
    |
  3 | struct Known;
    | ^^^^^^^^^^^^
-   = note: this error originates in the macro `routes` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `actor` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0308]: mismatched types
-  --> tests/ui/unknown_command.rs:28:22
+  --> tests/ui/unknown_command.rs:25:22
    |
-28 |     let _ = app.send(Unknown).await;
+25 |     let _ = app.send(Unknown).await;
    |                 ---- ^^^^^^^ expected `Known`, found `Unknown`
    |                 |
    |                 arguments to this method are incorrect
    |
 help: the return type of this call is `Unknown` due to the type of the argument passed
-  --> tests/ui/unknown_command.rs:28:13
+  --> tests/ui/unknown_command.rs:25:13
    |
-28 |     let _ = app.send(Unknown).await;
+25 |     let _ = app.send(Unknown).await;
    |             ^^^^^^^^^-------^
    |                      |
    |                      this argument influences the return type of `send`
 note: method defined here
   --> tests/ui/unknown_command.rs:10:1
    |
-10 | / actor_module! {
-11 | |     pub manifest routes;
-12 | |     actors: [
-13 | |         actor: State {
-...  |
-18 | |     ];
-19 | | }
+10 | / actor! {
+11 | |     pub actor actor: State {
+12 | |         mailbox_capacity: 1;
+13 | |         commands { Known => handle; }
+14 | |         events {}
+15 | |     };
+16 | | }
    | |_^
-20 |
-21 | / actor_system! {
-22 | |     pub struct App {
-23 | |         modules: [routes];
-24 | |     }
-25 | | }
+17 |
+18 | / actor_system! {
+19 | |     pub struct App {
+20 | |         actors: [actor];
+21 | |     }
+22 | | }
    | |_- in this macro invocation
    = note: this error originates in the macro `$crate::__actor_system` which comes from the expansion of the macro `actor_system` (in Nightly builds, run with -Z macro-backtrace for more info)

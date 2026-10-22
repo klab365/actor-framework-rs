@@ -392,26 +392,26 @@ fn expect_ident(input: ParseStream<'_>, expected: &str) -> Result<()> {
     }
 }
 
-/// Create an actor manifest macro that can be consumed by `actor_system!`.
+/// Declare exactly one actor, with explicit mailbox capacity and typed routes.
+/// Compose exported actors with `actor_system!` to build a multi-actor system.
 ///
 /// Event routes use `Event => handler` for a subscriber or `Event => []` to
 /// register an explicit no-subscriber event. Top-level `context` and `events`
 /// declarations are unsupported.
 #[proc_macro]
-pub fn actor_module(input: TokenStream) -> TokenStream {
+pub fn actor(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ModuleInput);
-    let manifest = input.manifest;
-    let actors = input.actors;
+    let actor_name = &input.actor.field;
+    let actor_tokens = quote_actor(&input.actor);
     let events = input.events;
-    let actor_tokens = actors.iter().map(quote_actor);
     let event_tokens = events.iter().map(module_type);
     quote! {
         #[macro_export]
-        macro_rules! #manifest {
+        macro_rules! #actor_name {
             ($callback:path, { $vis:vis struct $name:ident; actors: [$($existing:tt)*]; events: [$($known_events:ty,)*]; remaining: [$($remaining:ident,)*]; }) => {
                 $callback! {
                     $vis struct $name;
-                    actors: [$($existing)* #(#actor_tokens,)*];
+                    actors: [$($existing)* #actor_tokens, ];
                     events: [$($known_events,)* #(#event_tokens,)*];
                     remaining: [$($remaining,)*];
                 }
@@ -422,34 +422,21 @@ pub fn actor_module(input: TokenStream) -> TokenStream {
 }
 
 struct ModuleInput {
-    manifest: Ident,
-    actors: Vec<ActorDef>,
+    actor: ActorDef,
     events: Vec<Type>,
 }
 
 impl Parse for ModuleInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let _visibility: syn::Visibility = input.parse()?;
-        expect_ident(input, "manifest")?;
-        let manifest = input.parse()?;
+        expect_ident(input, "actor")?;
+        let actor: ActorDef = input.parse()?;
         input.parse::<Token![;]>()?;
-        expect_ident(input, "actors")?;
-        input.parse::<Token![:]>()?;
-        let actors_body;
-        syn::bracketed!(actors_body in input);
-        let actors: Vec<ActorDef> = Punctuated::<ActorDef, Token![,]>::parse_terminated(&actors_body)?
-            .into_iter()
-            .collect();
-        input.parse::<Token![;]>()?;
-        let events = actors
-            .iter()
-            .flat_map(|actor| actor.events.iter().map(|route| route.message.clone()))
-            .collect();
-        Ok(Self {
-            manifest,
-            actors,
-            events,
-        })
+        if !input.is_empty() {
+            return Err(input.error("actor! declares exactly one actor; compose actors with actor_system!"));
+        }
+        let events = actor.events.iter().map(|route| route.message.clone()).collect();
+        Ok(Self { actor, events })
     }
 }
 
