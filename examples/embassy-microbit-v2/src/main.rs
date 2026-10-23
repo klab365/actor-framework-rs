@@ -73,7 +73,14 @@ impl CountReporter {
         counter: ActorAddress<ActorRequest<ReadCount>>,
         _command: ReportCount,
     ) -> Result<u32, ()> {
-        counter.request(ReadCount).await.expect("counter actor stopped")
+        info!("reporter requesting count from counter actor");
+        let result = counter.request(ReadCount).await;
+        match &result {
+            Ok(Ok(count)) => info!("reporter received count {}", count),
+            Ok(Err(())) => info!("counter rejected reporter request"),
+            Err(_) => info!("reporter request failed: counter stopped before replying"),
+        }
+        result.expect("counter actor stopped")
     }
 }
 
