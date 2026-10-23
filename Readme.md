@@ -125,6 +125,82 @@ or lifecycle APIs:
 6. Handle `SendError` and `TrySendError`; do not assume retries, ordering across
    routes, atomic fan-out, persistence, or exactly-once processing.
 
+## Requests, responses, and reply slots
+
+A command declares its response type. `request` waits for that typed response;
+the outer `Result` is transport/lifecycle failure and an inner `Result`, when
+used as the response type, is the handler's application result.
+
+```rust,ignore
+use actor_framework::{ActorAddress, ActorRequest};
+
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = Result<u32, LookupError>)]
+struct Lookup(Id);
+
+impl Router {
+    #[actor_framework::actor_handler]
+    async fn route(
+        &mut self,
+        lookup: ActorAddress<ActorRequest<Lookup>>,
+        id: Route,
+    ) -> Result<Result<u32, LookupError>, actor_framework::RequestError> {
+        lookup.request(Lookup(id.0)).await
+    }
+}
+```
+
+`ActorRequest<M>` is an injected, statically permitted capability: a handler
+can request only command types declared by the composed system. It has no global
+registry and works identically in Tokio, WASM, and Embassy. Its
+`.request(message).await` returns `Result<M::Response, RequestError>`:
+
+- `RequestError::Closed`: shutdown or task exit closed the destination before
+  the request was accepted.
+- `RequestError::ResponseDropped`: the request was accepted, but its reply
+  endpoint was dropped (for example, the actor task failed).
+
+Dropping the caller's request future stops waiting; it does **not** cancel an
+accepted handler. Avoid request cycles (including requesting the same
+single-threaded actor from its active handler), as they can deadlock.
+
+### Choosing capacities
+
+`mailbox_capacity` belongs in every `actor!` declaration and limits queued
+commands/events for that actor. It does not include the handler currently
+executing, and it does not limit how many callers are waiting for responses.
+Choose it from the maximum burst of accepted work that the actor may buffer;
+`send`, `post`, and accepted requests wait when it is full.
+
+For Embassy, each requestable handler also has a statically allocated reply-slot
+pool. Configure its number of concurrent in-flight requests with
+`#[actor_handler(request_capacity = N)]` (default: `1`; `N` must be positive):
+
+```rust
+impl Worker {
+    #[actor_framework::actor_handler(request_capacity = 4)]
+    async fn lookup(&mut self, message: Lookup) -> Result<u32, LookupError> {
+        // ...
+    }
+}
+
+actor_framework::actor! {
+    actor worker: Worker {
+        mailbox_capacity: 8;
+        commands { Lookup => Worker::lookup; }
+        events {}
+    };
+}
+```
+
+Here up to four callers can reserve reply storage while requests are queued or
+handled; further callers wait for a slot. Increasing `request_capacity` consumes
+static Embassy storage proportional to the response type and creates no heap
+allocation. Tokio and WASM retain their backend request machinery; the
+attribute is accepted so one handler definition remains portable. Set both
+capacities deliberately: `mailbox_capacity` bounds buffered work, while Embassy
+`request_capacity` bounds simultaneous response slots.
+
 ## Capacity, backpressure, and failure
 
 Every generated actor declares `mailbox_capacity`; it bounds queued messages,
@@ -149,5 +225,6 @@ messages. Design application-level acknowledgements where completion matters.
 - [Current actor declaration syntax](docs/actor-module-migration.md)
 - [Typed actor addresses](docs/typed-actor-addresses.md)
 - [Command responses](docs/command-responses.md)
+- [Embassy reply-slot and shutdown semantics](docs/embassy.md)
 - [When actors are useful](docs/actors-use-cases.md)
 - [Release procedure](docs/release.md)

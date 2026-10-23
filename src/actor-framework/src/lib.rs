@@ -14,7 +14,7 @@ pub mod core;
 pub mod actor_address;
 #[cfg(feature = "embassy")]
 pub mod embassy;
-pub use actor_address::{ActorAddress, ActorCommand, ActorEvent};
+pub use actor_address::{ActorAddress, ActorCommand, ActorEvent, ActorRequest};
 #[cfg(feature = "wasm")]
 pub mod wasm;
 pub use crate::core::{

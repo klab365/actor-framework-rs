@@ -26,12 +26,12 @@ impl Counter {
     #[actor_framework::actor_handler(request_capacity = 2)]
     async fn add(
         &mut self,
-        stored: ActorAddress<ActorCommand<Store>>,
+        stored: ActorAddress<ActorRequest<Store>>,
         events: ActorAddress<ActorEvent<Changed>>,
 
         message: Add,
     ) {
-        stored.post(Store(message.0)).await.unwrap();
+        stored.request(Store(message.0)).await.unwrap();
         events.publish(Changed(message.0)).await.unwrap();
     }
 }

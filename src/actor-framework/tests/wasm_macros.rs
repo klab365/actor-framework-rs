@@ -27,6 +27,7 @@ impl Counter {
     pub async fn add(
         &mut self,
         events: actor_framework::ActorAddress<actor_framework::ActorEvent<Changed>>,
+        _queries: actor_framework::ActorAddress<actor_framework::ActorRequest<ReadTotal>>,
         command: Add,
     ) {
         self.0.set(self.0.get() + command.0);

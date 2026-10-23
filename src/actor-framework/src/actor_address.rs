@@ -1,16 +1,27 @@
 //! Statically routed, typed actor contexts.
 //!
 //! The `actor_handler` attribute lets a handler declare route capabilities as
-//! `ActorAddress<ActorCommand<M>>` or `ActorAddress<ActorEvent<E>>`. The selected
+//! `ActorAddress<ActorCommand<M>>`, `ActorAddress<ActorRequest<M>>`, or
+//! `ActorAddress<ActorEvent<E>>`. The selected
 //! system backend binds the concrete generated router type at composition time.
 //! No dynamic registry or message-type lookup is used.
 
 use core::marker::PhantomData;
 
-use crate::{ActorPublishRoute, ActorSendRoute, ActorTrySendRoute, SendError, TrySendError};
+use crate::{
+    ActorPublishRoute, ActorRequestRoute, ActorSendRoute, ActorTrySendRoute, Command, RequestError, SendError,
+    TrySendError,
+};
 
 /// Capability marker for sending one command message type.
 pub struct ActorCommand<M>(PhantomData<fn() -> M>);
+
+/// Capability marker for making one typed command request.
+///
+/// Unlike [`ActorCommand`], a request waits for the command handler's typed
+/// response. Its bounded capacity and cancellation behavior are defined by the
+/// selected runtime's generated [`ActorRequestRoute`].
+pub struct ActorRequest<M>(PhantomData<fn() -> M>);
 
 /// Capability marker for publishing one event message type.
 pub struct ActorEvent<M>(PhantomData<fn() -> M>);
@@ -52,6 +63,22 @@ where
         Router: ActorTrySendRoute<M>,
     {
         self.router.try_send_route(message)
+    }
+}
+
+impl<M, Router> ActorAddress<'_, ActorRequest<M>, Router>
+where
+    M: Command,
+    Router: ActorRequestRoute<M>,
+{
+    /// Send a command and wait for its typed handler response.
+    ///
+    /// `RequestError::Closed` means shutdown stopped the destination before
+    /// acceptance; `ResponseDropped` means an accepted request lost its reply.
+    /// Dropping this future cancels the caller's wait; runtime-specific reply
+    /// resources are reclaimed according to the selected backend.
+    pub async fn request(&self, message: M) -> Result<M::Response, RequestError> {
+        self.router.request_route(message).await
     }
 }
 
