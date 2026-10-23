@@ -8,6 +8,20 @@
 //! always-available [`core`] module requires neither an allocator nor an executor.
 //! Manifest macros support the `tokio`, `wasm`, and `embassy` backends; capacity,
 //! shutdown, and storage semantics are runtime-specific.
+//!
+//! # Task memory is not mailbox capacity
+//!
+//! `mailbox_capacity` bounds queued envelopes, not stacks or future storage.
+//! Tokio tasks use heap-backed futures and runtime worker-thread stacks (configured
+//! with `tokio::runtime::Builder::thread_stack_size`). WASM local tasks have no
+//! per-actor stack setting; toolchain and host memory limits apply. Embassy sizes
+//! static future storage at compile time: one task pool slot per actor plus one
+//! shutdown-coordinator slot per system, in addition to mailboxes, lifecycle state
+//! and per-command reply pools. Executor/interrupt stacks remain separate.
+//! There is no universal actor `stack_size` option.
+//!
+//! See the [resource planning guide](https://github.com/klab365/actor-framework-rs/blob/main/docs/task-resources.md)
+//! for target RAM measurements, examples, reply storage and failure boundaries.
 
 pub mod core;
 
