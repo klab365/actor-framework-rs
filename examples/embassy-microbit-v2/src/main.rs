@@ -22,6 +22,11 @@ enum ButtonPressed {
 #[actor_command(response = Result<u32, ()>)]
 struct ReadCount;
 
+/// Ask the counter actor to read itself through an injected request capability.
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = Result<u32, ()>)]
+struct ReportCount;
+
 #[derive(Clone)]
 struct PressObserved {
     button: ButtonPressed,
@@ -36,6 +41,8 @@ struct ActivityLed {
     column: Output<'static>,
     row: Output<'static>,
 }
+
+struct CountReporter;
 
 impl Counter {
     #[actor_handler]
@@ -56,6 +63,17 @@ impl Counter {
     #[actor_handler(request_capacity = 2)]
     async fn read_count(&mut self, _command: ReadCount) -> Result<u32, ()> {
         Ok(self.count)
+    }
+}
+
+impl CountReporter {
+    #[actor_handler]
+    async fn report(
+        &mut self,
+        counter: ActorAddress<ActorRequest<ReadCount>>,
+        _command: ReportCount,
+    ) -> Result<u32, ()> {
+        counter.request(ReadCount).await.expect("counter actor stopped")
     }
 }
 
@@ -88,6 +106,14 @@ actor! {
 }
 
 actor! {
+    actor reporter: CountReporter {
+        mailbox_capacity: 2;
+        commands { ReportCount => CountReporter::report; }
+        events {}
+    };
+}
+
+actor! {
     actor activity_led: ActivityLed {
         mailbox_capacity: 2;
         commands {}
@@ -97,7 +123,7 @@ actor! {
 
 actor_system! {
     pub struct AppActors {
-        actors: [counter, activity_led];
+        actors: [counter, reporter, activity_led];
     }
 }
 
@@ -108,6 +134,7 @@ async fn main(spawner: Spawner) {
     let mut button_b = Input::new(peripherals.P0_23, Pull::Up);
     let actors = AppActors::builder()
         .counter(Counter { count: 0 })
+        .reporter(CountReporter)
         .activity_led(ActivityLed {
             // P0.28/P0.21 drive one micro:bit-v2 LED matrix pixel.
             column: Output::new(peripherals.P0_28, Level::High, OutputDrive::Standard),
@@ -134,10 +161,10 @@ async fn main(spawner: Spawner) {
 
         // `request` waits for the typed handler response. Handler errors stay
         // inside the outer transport result.
-        match actors.request(ReadCount).await {
-            Ok(Ok(count)) => info!("counter now reads {}", count),
+        match actors.request(ReportCount).await {
+            Ok(Ok(count)) => info!("reporter queried counter; count is {}", count),
             Ok(Err(())) => info!("counter rejected read"),
-            Err(_) => info!("counter actor stopped before replying"),
+            Err(_) => info!("reporter or counter stopped before replying"),
         }
         Timer::after(Duration::from_millis(50)).await;
     }
