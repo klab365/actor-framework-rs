@@ -211,7 +211,7 @@ pub fn derive_actor_command(input: TokenStream) -> TokenStream {
 /// Method generics are unsupported; generic inherent impls are supported.
 /// Reference the handler as `State::method` in the actor manifest.
 ///
-/// Context parameters use `ActorAddress<ActorCommand<Message>>` or
+/// Context parameters use `ActorAddress<ActorRequest<Message>>`, `ActorAddress<ActorCommand<Message>>` or
 /// `ActorAddress<ActorEvent<Event>>`. The generated helper binds the concrete
 /// system router at the composition site.
 #[proc_macro_attribute]
@@ -280,18 +280,18 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
         let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
             return syn::Error::new_spanned(
                 &argument.ty,
-                "expected `ActorAddress<ActorCommand<M>>` or `ActorAddress<ActorEvent<E>>`",
+                "expected ActorAddress with an ActorCommand<M>, ActorRequest<M>, or ActorEvent<E> marker",
             )
             .into_compile_error()
             .into();
         };
         let Some(syn::GenericArgument::Type(marker_ty)) = args.args.first() else {
-            return syn::Error::new_spanned(&argument.ty, "expected a command/event marker type")
+            return syn::Error::new_spanned(&argument.ty, "expected a command/request/event marker type")
                 .into_compile_error()
                 .into();
         };
         let syn::Type::Path(marker_path) = marker_ty else {
-            return syn::Error::new_spanned(marker_ty, "expected ActorCommand<M> or ActorEvent<E>")
+            return syn::Error::new_spanned(marker_ty, "expected ActorCommand<M>, ActorRequest<M>, or ActorEvent<E>")
                 .into_compile_error()
                 .into();
         };
@@ -299,8 +299,8 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
             unreachable!()
         };
         let kind = marker_segment.ident.to_string();
-        if kind != "ActorCommand" && kind != "ActorEvent" {
-            return syn::Error::new_spanned(marker_ty, "expected ActorCommand<M> or ActorEvent<E>")
+        if kind != "ActorCommand" && kind != "ActorEvent" && kind != "ActorRequest" {
+            return syn::Error::new_spanned(marker_ty, "expected ActorCommand<M>, ActorRequest<M>, or ActorEvent<E>")
                 .into_compile_error()
                 .into();
         }
@@ -338,6 +338,8 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
         for (_, kind, message, _) in &contexts {
             let predicate = if kind == "ActorCommand" {
                 quote!(#router: ::actor_framework::ActorSendRoute<#message>)
+            } else if kind == "ActorRequest" {
+                quote!(#router: ::actor_framework::ActorRequestRoute<#message>)
             } else {
                 quote!(#router: ::actor_framework::ActorPublishRoute<#message>)
             };
@@ -389,6 +391,8 @@ pub fn actor_handler(attribute: TokenStream, input: TokenStream) -> TokenStream 
     let bounds = contexts.iter().map(|(_, kind, message, _)| {
         if kind == "ActorCommand" {
             quote!(#router: ::actor_framework::ActorSendRoute<#message>,)
+        } else if kind == "ActorRequest" {
+            quote!(#router: ::actor_framework::ActorRequestRoute<#message>,)
         } else {
             quote!(#router: ::actor_framework::ActorPublishRoute<#message>,)
         }
