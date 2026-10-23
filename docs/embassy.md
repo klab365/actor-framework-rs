@@ -13,6 +13,10 @@ and command-reply storage. They are started with the generated builder and an
 is intended for Embassy executors and does not require `std` or a global
 allocator.
 
+See [task memory and execution resources](task-resources.md) for compiler-sized
+`TaskStorage`, the extra shutdown task, independent reply pools, and a target
+ELF/linker-map RAM verification recipe. Mailbox capacity is not a stack budget.
+
 ## Storage and routing
 
 Declare actors with the same one-actor `actor!` and composition

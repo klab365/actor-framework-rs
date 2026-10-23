@@ -204,7 +204,12 @@ capacities deliberately: `mailbox_capacity` bounds buffered work, while Embassy
 ## Capacity, backpressure, and failure
 
 Every generated actor declares `mailbox_capacity`; it bounds queued messages,
-not the message currently being handled.
+not the message currently being handled, task/future storage, or execution stacks.
+There is no universal actor `stack_size`: Tokio worker stacks belong to the
+runtime, WASM limits to the toolchain/host, and Embassy future storage is sized
+statically by the compiler. See the [resource planning guide](docs/task-resources.md)
+for configuration examples, all generated task/storage counts, and target RAM
+verification.
 
 - `send(...).await` and `ActorAddress::post(...).await` wait for capacity.
   Success means the mailbox accepted the message, **not** that handling finished.
