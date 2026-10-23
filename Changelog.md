@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0](https://github.com/klab365/actor-framework-rs/compare/actor-framework-rs-v1.0.0...actor-framework-rs-v1.1.0) - 2026-10-23
+
+### Added
+
+- *(actor-address)* support typed actor requests ([#39](https://github.com/klab365/actor-framework-rs/pull/39))
+
+### Other
+
+- explain actor task memory resources ([#42](https://github.com/klab365/actor-framework-rs/pull/42))
+
 ## [1.0.0](https://github.com/klab365/actor-framework-rs/compare/actor-framework-rs-v0.1.0...actor-framework-rs-v1.0.0) - 2026-10-22
 
 ### Added
