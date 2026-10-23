@@ -6,6 +6,14 @@ use tokio::sync::Mutex;
 #[actor_command(response = ())]
 struct Add(u32);
 
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = Result<u32, ()>)]
+struct GetTotal;
+
+#[derive(actor_framework::ActorCommand)]
+#[actor_command(response = Result<u32, ()>)]
+struct Audit;
+
 #[derive(Clone)]
 struct TotalChanged(u32);
 
@@ -16,6 +24,9 @@ struct Counter {
 struct Logger {
     values: Arc<Mutex<Vec<u32>>>,
 }
+
+/// Demonstrates an actor awaiting a typed response from another actor.
+struct Auditor;
 
 impl Counter {
 #[actor_handler]
@@ -30,6 +41,13 @@ async fn add(&mut self, events: ActorAddress<ActorEvent<TotalChanged>>,  message
 }
 }
 
+impl Counter {
+    #[actor_handler]
+    async fn get_total(&mut self, _: GetTotal) -> Result<u32, ()> {
+        Ok(self.total)
+    }
+}
+
 impl Logger {
 #[actor_handler]
 async fn log(&mut self, event: TotalChanged) {
@@ -38,12 +56,23 @@ async fn log(&mut self, event: TotalChanged) {
 }
 }
 
+impl Auditor {
+    #[actor_handler]
+    async fn audit(
+        &mut self,
+        counter: ActorAddress<ActorRequest<GetTotal>>,
+        _: Audit,
+    ) -> Result<u32, ()> {
+        counter.request(GetTotal).await.expect("counter is running")
+    }
+}
+
 static LOG: std::sync::LazyLock<Arc<Mutex<Vec<u32>>>> = std::sync::LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 
 actor! {
     pub actor counter: Counter {
         mailbox_capacity: 8;
-        commands { Add => Counter::add; }
+        commands { Add => Counter::add;, GetTotal => Counter::get_total; }
         events {}
     };
 }
@@ -56,9 +85,17 @@ actor! {
     };
 }
 
+actor! {
+    pub actor auditor: Auditor {
+        mailbox_capacity: 2;
+        commands { Audit => Auditor::audit; }
+        events {}
+    };
+}
+
 actor_system! {
     pub struct AppActors {
-        actors: [counter, logger];
+        actors: [counter, logger, auditor];
     }
 }
 
@@ -68,6 +105,7 @@ async fn main() {
     let actors = AppActors::builder()
         .counter(Counter { total: 0 })
         .logger(Logger { values: LOG.clone() })
+        .auditor(Auditor)
         .start()
         .expect("all actor states supplied");
 
@@ -85,5 +123,8 @@ async fn main() {
 
     let observed = LOG.lock().await.clone();
     assert_eq!(observed, [5, 12]);
+    // Auditor receives `Audit`, then uses an injected ActorRequest capability
+    // to await Counter's typed GetTotal response.
+    assert_eq!(actors.request(Audit).await, Ok(Ok(12)));
     println!("Observed totals: {observed:?}");
 }
