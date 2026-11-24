@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [1.1.1](https://github.com/klab365/actor-framework-rs/compare/actor-framework-rs-v1.1.0...actor-framework-rs-v1.1.1) - 2026-11-24
+
+### Fixed
+
+- format compile-fail test
+
+### Other
+
+- avoid compiler diagnostic snapshots
+
 ## [1.1.0](https://github.com/klab365/actor-framework-rs/compare/actor-framework-rs-v1.0.0...actor-framework-rs-v1.1.0) - 2026-10-23
 
 ### Added
