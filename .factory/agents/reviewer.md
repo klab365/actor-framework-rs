@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Independently reviews changes for correctness, regressions, and missing tests without editing
-model: openai-codex/gpt-6-luna
+model: openai-codex/gpt-6.1-terra
 thinking: high
 tools: [read, bash]
 ---

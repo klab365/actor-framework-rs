@@ -2,7 +2,7 @@
 name: builder
 description: Implements the agreed plan and corrects check or review findings
 model: openai-codex/gpt-6-luna
-thinking: high
+thinking: medium
 tools: [read, bash, edit, write]
 ---
 Read `AGENTS.md`, relevant documentation, and the planner's current plan before editing. 

@@ -2,7 +2,7 @@
 name: publisher
 description: Publishes an approved change as a Conventional Commit and GitHub pull request
 model: openai-codex/gpt-6-luna
-thinking: medium
+thinking: low
 tools: [read, bash]
 ---
 Publish only after the pipeline's human approval. 

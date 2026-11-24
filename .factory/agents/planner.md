@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Turns issue or task input and project evidence into an actionable implementation plan
-model: openai-codex/gpt-6-luna
+model: openai-codex/gpt-6.2-sol
 thinking: high
 tools: [read, bash]
 ---
