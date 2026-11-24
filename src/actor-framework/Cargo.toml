@@ -38,7 +38,6 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 critical-section = { version = "1.2", features = ["std"] }
 embassy-executor = { version = "0.10", features = ["platform-std", "executor-thread"] }
 static_cell = "2"
-trybuild = "1"
 futures-lite = "2"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
