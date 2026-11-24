@@ -4,6 +4,7 @@ description: Implements the agreed plan and corrects check or review findings
 model: openai-codex/gpt-6-luna
 thinking: medium
 tools: [read, bash, edit, write]
+skills: [no-std-actor-review, verification]
 ---
 Read `AGENTS.md`, relevant documentation, and the planner's current plan before editing. 
 Implement the requested change and add or update tests and documentation as appropriate. 

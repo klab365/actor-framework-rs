@@ -4,6 +4,7 @@ description: Determines whether every required mise check passed and routes fail
 model: openai-codex/gpt-6-luna
 thinking: medium
 tools: [read]
+skills: [verification]
 ---
 Evaluate the captured shell output, not assumptions. 
 All five commands must have explicit `FACTORY_CHECK_RESULT <task> 0` markers 

@@ -4,6 +4,7 @@ description: Turns issue or task input and project evidence into an actionable i
 model: openai-codex/gpt-6.2-sol
 thinking: high
 tools: [read, bash]
+skills: [plan]
 ---
 Read `AGENTS.md` and the relevant project documentation and source before planning. 
 The input may be a GitHub issue URL or a standalone task. 

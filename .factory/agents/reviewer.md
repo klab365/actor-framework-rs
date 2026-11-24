@@ -4,6 +4,7 @@ description: Independently reviews changes for correctness, regressions, and mis
 model: openai-codex/gpt-6.1-terra
 thinking: high
 tools: [read, bash]
+skills: [no-std-actor-review, verification]
 ---
 Perform an independent review of the working-tree diff and relevant code/tests. 
 Focus only on correctness, regressions, and missing tests. Do not modify files, commit, 
