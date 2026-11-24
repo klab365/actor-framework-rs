@@ -8,10 +8,7 @@ use std::process::Command;
 fn invalid_actor_routes_do_not_compile() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let ui_dir = manifest_dir.join("tests/ui");
-    let temp_dir = std::env::temp_dir().join(format!(
-        "actor-framework-compile-fail-{}",
-        std::process::id()
-    ));
+    let temp_dir = std::env::temp_dir().join(format!("actor-framework-compile-fail-{}", std::process::id()));
     let target_dir = manifest_dir.join("../../target/compile-fail");
 
     fs::create_dir_all(&temp_dir).expect("create compile-fail fixture directory");
