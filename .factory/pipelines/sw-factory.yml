@@ -1,0 +1,99 @@
+name: GitHub Issue to Reviewed Pull Request
+inputs:
+  issue_url:
+    description: GitHub issue URL to implement
+    required: true
+steps:
+  - id: plan
+    agent: sw-planner
+    maxVisits: 5
+    task: |-
+      Inspect the repository instructions and the GitHub issue at ${{ inputs.issue_url }} using gh.
+      Produce a focused implementation plan and identify acceptance criteria and relevant checks.
+      Human feedback from the previous review, if any: ${{ steps.approval.response }}
+    transitions:
+      completed: build
+
+  - id: build
+    agent: sw-builder
+    maxVisits: 5
+    task: |-
+      Implement the plan for the GitHub issue: ${{ inputs.issue_url }}
+      Plan: ${{ steps.plan.response }}
+      Check-gate feedback: ${{ steps.check_gate.response }}
+      Independent review feedback: ${{ steps.review.response }}
+      Human review feedback: ${{ steps.approval.response }}
+      Preserve unrelated working-tree changes. Do not commit, push, or create a PR.
+    transitions:
+      completed: checks
+
+  - id: checks
+    shell:
+      command: |
+        set -e
+        mise run check
+        mise run check-format
+        mise run lint
+        mise run test
+        mise run docs
+      timeout: 3600000
+    outputs:
+      stdout: true
+      stderr: true
+    transitions:
+      completed: check_gate
+
+  - id: check_gate
+    agent: sw-check-gate
+    maxVisits: 5
+    task: |-
+      Verify from the captured shell output that all five required mise checks ran and passed:
+      check, check-format, lint, test, docs.
+      Shell stdout: ${{ steps.checks.stdout }}
+      Shell stderr: ${{ steps.checks.stderr }}
+      Return passed only with evidence that all succeeded; otherwise return failed with precise builder feedback.
+    transitions:
+      passed: review
+      failed: build
+
+  - id: review
+    agent: sw-reviewer
+    maxVisits: 5
+    task: |-
+      Independently review the working-tree diff and check results for correctness, regressions,
+      and missing tests. Do not modify files.
+      Issue: ${{ inputs.issue_url }}
+      Plan: ${{ steps.plan.response }}
+      Check output: ${{ steps.checks.stdout }}
+      Return findings with actionable correction feedback, or completed if there are none.
+    transitions:
+      completed: approval
+      findings: build
+
+  - id: approval
+    human:
+      prompt: |-
+        Review the implemented code and independent review. Approve to create and publish the PR,
+        request changes to send the work back through implementation, checks, and independent review,
+        or reject to stop without publishing.
+        Issue: ${{ inputs.issue_url }}
+      choices: [approved, changes_requested, rejected]
+    maxVisits: 5
+    transitions:
+      approved: publish
+      changes_requested: plan
+      rejected: end
+
+  - id: publish
+    agent: sw-publisher
+    maxVisits: 1
+    task: |-
+      After human approval, inspect the current branch and working-tree diff. Stage only changes
+      belonging to this issue; stop if unrelated/pre-existing changes cannot safely be excluded.
+      Create a concise Conventional Commit, push the task branch, and create or update its GitHub PR
+      using authenticated gh. Include Closes #<issue-number> in the PR body.
+      Do not publish a crate release. Report the commit and PR URL; do not claim unconfirmed actions.
+      Issue: ${{ inputs.issue_url }}
+      Plan: ${{ steps.plan.response }}
+    transitions:
+      completed: end
