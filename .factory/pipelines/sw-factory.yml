@@ -37,9 +37,9 @@ steps:
         mise run test
         mise run docs
       timeout: 3600000
-    outputs:
-      stdout: true
-      stderr: true
+      outputs:
+        stdout: true
+        stderr: true
     transitions:
       completed: check_gate
 
